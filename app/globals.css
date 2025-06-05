@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* New minimalist color palette */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 196 100% 47%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 196 100% 47%;
+
+    --radius: 0.5rem;
+
+    /* Status colors - more subtle */
+    --success: 160 84% 39%;
+    --success-foreground: 160 84% 39%;
+    --success-muted: 160 84% 95%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 50%;
+    --warning-muted: 38 92% 95%;
+
+    --info: 196 100% 47%;
+    --info-foreground: 196 100% 47%;
+    --info-muted: 196 100% 95%;
+
+    --pending: 262 83% 58%;
+    --pending-foreground: 262 83% 58%;
+    --pending-muted: 262 83% 95%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 196 100% 50%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+
+    /* Status colors - dark mode */
+    --success: 160 84% 39%;
+    --success-foreground: 160 84% 39%;
+    --success-muted: 160 84% 20%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 50%;
+    --warning-muted: 38 92% 20%;
+
+    --info: 196 100% 50%;
+    --info-foreground: 196 100% 50%;
+    --info-muted: 196 100% 20%;
+
+    --pending: 262 83% 58%;
+    --pending-foreground: 262 83% 58%;
+    --pending-muted: 262 83% 20%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+/* Subtle animations */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-in-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-in-out;
+}
+
+.animate-scale {
+  animation: scale 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Status badges */
+.status-badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors;
+}
+
+.status-badge-success {
+  @apply bg-success-muted text-success-foreground;
+}
+
+.status-badge-warning {
+  @apply bg-warning-muted text-warning-foreground;
+}
+
+.status-badge-info {
+  @apply bg-info-muted text-info-foreground;
+}
+
+.status-badge-pending {
+  @apply bg-pending-muted text-pending-foreground;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
+}
+
+/* Button hover effects */
+.btn-hover {
+  @apply transition-all duration-200 hover:shadow-md;
+}
+
+/* Avatar styles */
+.avatar {
+  @apply flex items-center justify-center rounded-full bg-primary/10 text-primary font-medium;
+}
+
+/* Page transitions */
+.page-transition {
+  @apply animate-fade-in;
+}
+
+/* Tab transitions */
+.tab-transition {
+  @apply transition-all duration-200;
+}
+
+/* Tooltip styles */
+.tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs rounded bg-foreground text-background opacity-0 transition-opacity duration-200;
+}
+
+.tooltip-visible {
+  @apply opacity-100;
+}
