@@ -1,11 +1,12 @@
+// components/revenue-chart.tsx
 "use client"
 import { useState, useEffect, useCallback } from "react";
-import { TrendingUp, DollarSign, AlertTriangle } from "lucide-react"; // Usar ícones consistentes
+import { AlertTriangle } from "lucide-react";
 
 interface RevenueChartDataPoint {
-  time?: string; // For 'today'
-  day?: string;  // For 'week'
-  week?: string; // For 'month'
+  time?: string;
+  day?: string;
+  week?: string;
   revenue: number;
   cost: number;
   profit: number;
@@ -24,40 +25,14 @@ export function RevenueChart({ period }: RevenueChartProps) {
     setIsLoading(true);
     setError(null);
     try {
-      // A API de métricas já retorna faturamento, gastos, lucro totais.
-      // Para um gráfico de evolução, precisaríamos de um endpoint que retorne dados agrupados por dia/hora/semana.
-      // Ex: /api/metrics/revenue-evolution?period=week
-      // const response = await fetch(`/api/metrics/revenue-evolution?period=${period}`);
-      // if (!response.ok) throw new Error('Failed to fetch revenue data');
-      // const data = await response.json();
-      // setChartData(data);
-
-      // Simulação da API, pois não temos esse endpoint detalhado:
-      let simulatedData: RevenueChartDataPoint[] = [];
-      if (period === "today") {
-        simulatedData = [
-          { time: "08:00", revenue: Math.random()*500 + 200, cost: Math.random()*150+50, get profit() { return this.revenue - this.cost;} },
-          { time: "10:00", revenue: Math.random()*800 + 300, cost: Math.random()*250+100, get profit() { return this.revenue - this.cost;} },
-          { time: "14:00", revenue: Math.random()*400 + 100, cost: Math.random()*100+50, get profit() { return this.revenue - this.cost;} },
-          { time: "16:00", revenue: Math.random()*300 + 50,  cost: Math.random()*80+20, get profit() { return this.revenue - this.cost;} },
-        ];
-      } else if (period === "week") {
-        simulatedData = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(day => ({
-          day,
-          revenue: Math.random()*4000 + 1000,
-          cost: Math.random()*1200 + 400,
-          get profit() { return this.revenue - this.cost;}
-        }));
-      } else { // month
-        simulatedData = ["Sem 1", "Sem 2", "Sem 3", "Sem 4"].map(week => ({
-          week,
-          revenue: Math.random()*15000 + 5000,
-          cost: Math.random()*5000 + 2000,
-          get profit() { return this.revenue - this.cost;}
-        }));
+      // Esta API precisaria ser criada e retornar dados agregados
+      const response = await fetch(`/api/metrics/revenue-evolution?period=${period}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao buscar dados de evolução da receita');
       }
-      setChartData(simulatedData);
-
+      const data: RevenueChartDataPoint[] = await response.json();
+      setChartData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
       setChartData([]);
@@ -72,10 +47,9 @@ export function RevenueChart({ period }: RevenueChartProps) {
 
   if (isLoading) return <div className="text-center py-10 text-muted-foreground">Carregando gráfico de receita...</div>;
   if (error) return <div className="text-center py-10 text-destructive flex items-center justify-center gap-2"><AlertTriangle className="w-5 h-5" /> Erro: {error}</div>;
-  if (chartData.length === 0) return <div className="text-center py-10 text-muted-foreground">Sem dados de receita para exibir.</div>;
+  if (chartData.length === 0 && !isLoading) return <div className="text-center py-10 text-muted-foreground">Sem dados de receita para exibir.</div>;
 
-  const maxValue = Math.max(1, ...chartData.map((d) => d.revenue)); // Max de 1 para evitar divisão por zero
-
+  const maxValue = Math.max(1, ...chartData.map((d) => d.revenue));
   const totalRevenue = chartData.reduce((sum, item) => sum + item.revenue, 0);
   const totalCost = chartData.reduce((sum, item) => sum + item.cost, 0);
   const totalProfit = chartData.reduce((sum, item) => sum + item.profit, 0);
@@ -91,7 +65,6 @@ export function RevenueChart({ period }: RevenueChartProps) {
       <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
         {chartData.map((item, index) => {
           const revenueWidth = (item.revenue / maxValue) * 100;
-          // const costWidth = (item.cost / maxValue) * 100; // Custo é parte da receita
           const profitWidth = (item.profit / maxValue) * 100;
           const label = item.time || item.day || item.week;
 
@@ -109,10 +82,9 @@ export function RevenueChart({ period }: RevenueChartProps) {
                   style={{ width: `${revenueWidth}%` }}
                   title={`Receita: R$ ${item.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 />
-                 {/* Barra de Lucro sobrepõe parte da de Receita, Custo é a diferença */}
                 <div
                   className="absolute top-0 left-0 h-full bg-primary rounded transition-all duration-300 ease-out"
-                  style={{ width: `${profitWidth}%` }}
+                  style={{ width: `${profitWidth}%` }} // Lucro sobrepõe a receita
                   title={`Lucro: R$ ${item.profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 />
               </div>

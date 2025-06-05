@@ -101,7 +101,7 @@ export function PatientsList({ patients, onSelectPatient }: PatientsListProps) {
       {/* Patients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPatients.map((patient) => {
-          const stageInfo = stageLabels[patient.funnelStage] || stageLabels.atendimento_iniciado
+          const stageInfo = stageLabels[patient.funnelStage as keyof typeof stageLabels] || stageLabels.atendimento_iniciado
 
           return (
             <Card key={patient.id} className="hover:shadow-lg transition-shadow cursor-pointer">

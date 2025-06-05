@@ -100,7 +100,17 @@ export function ScheduleManagement({ selectedPeriod: initialPeriod }: ScheduleMa
       if (!proceduresRes.ok) throw new Error('Failed to fetch procedures');
       const proceduresData = await proceduresRes.json();
       // Adaptar a resposta da API de procedures/performed para ProcedureScheduleItem
-       setProcedures(proceduresData.map(p => ({
+       setProcedures(proceduresData.map((p: { 
+         id: string;
+         date: string;
+         patientName: string;
+         procedureName: string;
+         status: string;
+         defaultDurationMinutes?: number;
+         value?: number;
+         profit?: number;
+         notes?: string;
+       }) => ({
         id: p.id,
         time: new Date(p.date).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}), // Supondo que p.date tem hora
         dateFull: p.date,
@@ -271,7 +281,7 @@ export function ScheduleManagement({ selectedPeriod: initialPeriod }: ScheduleMa
         <NewPatientModal // Reutilizando NewPatientModal para simplicidade ou criar um NewAppointmentModal
           isOpen={showNewAppointmentModal}
           onClose={() => setShowNewAppointmentModal(false)}
-          onSave={(patientData) => {
+          onSave={async (patientData) => {
             // Adaptar para lógica de salvar agendamento
             // Aqui você pode ter um formulário mais específico para agendamento
             // Por agora, apenas loga e fecha

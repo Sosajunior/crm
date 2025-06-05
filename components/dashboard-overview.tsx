@@ -1,12 +1,12 @@
+// components/dashboard-overview.tsx
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Users, Calendar, CheckCircle, DollarSign, TrendingUp } from "lucide-react"
+import { Users, Calendar, CheckCircle, DollarSign, TrendingUp, Activity } from "lucide-react"
 import { FunnelVisualization } from "@/components/funnel-visualization"
 import { QuickStats } from "@/components/quick-stats"
-import { RecentActivity } from "@/components/recent-activity" // Este componente precisará de fetch próprio
+import { RecentActivity } from "@/components/recent-activity"
 
-// Reutilizar MetricValues de app/page.tsx ou de um types/index.ts
 interface MetricValues {
   atendimentosIniciados: number;
   duvidasSanadas: number;
@@ -18,26 +18,35 @@ interface MetricValues {
   faturamento: number;
   gastos: number;
   lucro: number;
+  // Adicionar campos para tendências se a API de métricas os fornecer
+  // Ex: atendimentosIniciadosPreviousPeriod?: number;
 }
 
 interface DashboardOverviewProps {
-  metrics: MetricValues | null; // Pode ser nulo enquanto carrega
+  metrics: MetricValues | null;
   period: string;
 }
 
 export function DashboardOverview({ metrics, period }: DashboardOverviewProps) {
   if (!metrics) {
-    return <div className="flex justify-center items-center h-64"><p>Carregando métricas do dashboard...</p></div>;
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 animate-pulse">
+            {[...Array(4)].map((_, i) => (
+            <Card key={i}><CardContent className="p-4 md:p-6"><div className="h-6 bg-muted rounded w-3/4 mb-2"></div><div className="h-8 bg-muted rounded w-1/2 mb-3"></div></CardContent></Card>
+            ))}
+        </div>
+    );
   }
 
   const conversionRate = metrics.atendimentosIniciados > 0
-    ? ((metrics.procedimentosRealizados / metrics.atendimentosIniciados) * 100).toFixed(1)
-    : "0.0";
-  const revenueGrowth = period === "today" ? 12.5 : period === "week" ? 8.3 : 15.2; // Isso ainda é mockado, idealmente viria da API
+    ? ((metrics.procedimentosRealizados / metrics.atendimentosIniciados) * 100)
+    : 0;
+
+  // const revenueGrowth = period === "today" ? 12.5 : period === "week" ? 8.3 : 15.2; // Mock removido
+  // TODO: Obter dados de crescimento da API de métricas ou calcular se houver dados do período anterior
 
   return (
     <div className="space-y-6">
-      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="card-hover">
           <CardContent className="p-4 md:p-6">
@@ -45,7 +54,12 @@ export function DashboardOverview({ metrics, period }: DashboardOverviewProps) {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Atendimentos</p>
                 <p className="text-2xl font-bold text-foreground">{metrics.atendimentosIniciados}</p>
-                {/* Adicionar lógica para crescimento real se disponível */}
+                {/* Exemplo de como exibir tendência se disponível:
+                {metrics.atendimentosIniciadosPreviousPeriod !== undefined && (
+                  <p className={`text-xs ${metrics.atendimentosIniciados >= metrics.atendimentosIniciadosPreviousPeriod ? 'text-success-foreground' : 'text-destructive'}`}>
+                    {((metrics.atendimentosIniciados / metrics.atendimentosIniciadosPreviousPeriod -1) * 100).toFixed(1)}% vs anterior
+                  </p>
+                )} */}
               </div>
               <div className="p-3 bg-info-muted rounded-full">
                 <Users className="w-5 h-5 md:w-6 md:h-6 text-info-foreground" />
@@ -61,7 +75,7 @@ export function DashboardOverview({ metrics, period }: DashboardOverviewProps) {
                 <p className="text-sm font-medium text-muted-foreground">Agendamentos</p>
                 <p className="text-2xl font-bold text-foreground">{metrics.agendamentosRealizados}</p>
               </div>
-              <div className="p-3 bg-success-muted rounded-full"> {/* Usando success para agendamentos */}
+              <div className="p-3 bg-success-muted rounded-full">
                 <Calendar className="w-5 h-5 md:w-6 md:h-6 text-success-foreground" />
               </div>
             </div>
@@ -72,11 +86,11 @@ export function DashboardOverview({ metrics, period }: DashboardOverviewProps) {
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Conversão</p>
-                <p className="text-2xl font-bold text-foreground">{conversionRate}%</p>
+                <p className="text-sm font-medium text-muted-foreground">Conversão Geral</p>
+                <p className="text-2xl font-bold text-foreground">{conversionRate.toFixed(1)}%</p>
               </div>
-              <div className="p-3 bg-pending-muted rounded-full"> {/* Usando pending para conversão (ou outra cor) */}
-                <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-pending-foreground" />
+              <div className="p-3 bg-primary/10 rounded-full">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -86,13 +100,13 @@ export function DashboardOverview({ metrics, period }: DashboardOverviewProps) {
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Receita ({period})</p>
+                <p className="text-sm font-medium text-muted-foreground">Receita ({period === "today" ? "Hoje" : period === "week" ? "Semana" : "Mês"})</p>
                 <p className="text-2xl font-bold text-foreground">
-                  R$ {metrics.faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                  R$ {metrics.faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits:0 })}
                 </p>
               </div>
-              <div className="p-3 bg-primary/10 rounded-full"> {/* Usando primary para receita */}
-                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+              <div className="p-3 bg-success-muted rounded-full">
+                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-success-foreground" />
               </div>
             </div>
           </CardContent>
@@ -107,7 +121,7 @@ export function DashboardOverview({ metrics, period }: DashboardOverviewProps) {
           <QuickStats metrics={metrics} />
         </div>
       </div>
-      <RecentActivity />
+      <RecentActivity /> {/* Este componente agora faz seu próprio fetch */}
     </div>
   );
 }

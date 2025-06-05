@@ -1,39 +1,26 @@
+// components/patient-profile.tsx
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar } from "@/components/ui/avatar"
-import { StatusBadge } from "@/components/ui/status-badge"
-import { StatCard } from "@/components/ui/stat-card"
-import { StyledTabs, StyledTabsList, StyledTabsTrigger, TabsContent } from "@/components/ui/tabs-styled"
-import { ArrowLeft, Phone, Mail, Calendar, CheckCircle, DollarSign, TrendingUp } from "lucide-react"
-
-interface Patient {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  lastContact: string | null;
-  funnelStage: string;
-  status: string; // "active", "pending", "inactive"
-  avatar?: string; // Pode ser URL da imagem ou iniciais para o componente Avatar
-  nextAppointment?: string | null; // Data formatada ou ISO string
-  totalValue?: number; // Valor total gasto/gerado
-  procedures?: number; // Contagem de procedimentos
-  // Para o perfil completo, que será buscado por /api/patients/[id]
-  appointments: Array<{ date: string; time?: string; type: string; status: string; value?: number }>;
-  procedureHistory: Array<{ date: string; name: string; status: string; value: number; cost: number; profit: number }>;
-  totalSpent?: number;
-  totalProfit?: number;
-}
+import { useState } from "react";
+// Importa os tipos de app/page.tsx para garantir consistência
+import type { PatientDetail } from "@/app/page";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatCard } from "@/components/ui/stat-card";
+import { StyledTabs, StyledTabsList, StyledTabsTrigger, TabsContent } from "@/components/ui/tabs-styled";
+import { ArrowLeft, Phone, Mail, Calendar, CheckCircle, DollarSign, TrendingUp } from "lucide-react";
 
 interface PatientProfileProps {
-  patient: Patient
-  onBack: () => void
+  patient: PatientDetail; // CORRETO: Usa a interface unificada
+  onBack: () => void;
 }
 
-const stageLabels = {
+// ... (Restante do componente como na resposta anterior, pois ele já está correto
+//      e espera `patient.procedures` e `patient.appointments`)
+
+const stageLabels: { [key: string]: { label: string; variant: "success" | "warning" | "info" | "default" | "destructive" } } = {
   atendimento_iniciado: { label: "Atendimento Iniciado", variant: "info" },
   duvida_sanada: { label: "Dúvida Sanada", variant: "info" },
   procedimento_oferecido: { label: "Procedimento Oferecido", variant: "warning" },
@@ -41,11 +28,12 @@ const stageLabels = {
   agendamento_confirmado: { label: "Agendamento Confirmado", variant: "success" },
   comparecimento_confirmado: { label: "Compareceu", variant: "success" },
   procedimento_realizado: { label: "Procedimento Realizado", variant: "success" },
-}
+  lead_created: { label: "Lead Criado", variant: "default" },
+};
 
 export function PatientProfile({ patient, onBack }: PatientProfileProps) {
-  const [activeTab, setActiveTab] = useState("appointments")
-  const stageInfo = stageLabels[patient.funnelStage] || stageLabels.atendimento_iniciado
+  const [activeTab, setActiveTab] = useState("appointments");
+  const stageInfo = stageLabels[patient.funnelStage] || { label: patient.funnelStage, variant: "default" };
 
   const getInitials = (name: string) => {
     return name
@@ -53,28 +41,32 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
       .map((part) => part[0])
       .join("")
       .toUpperCase()
-      .substring(0, 2)
-  }
+      .substring(0, 2);
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
       case "realizado":
       case "concluído":
-        return "success"
+      case "completed":
+        return "success";
       case "confirmado":
-        return "info"
+      case "confirmed":
+        return "info";
       case "pendente":
-        return "warning"
+      case "pending":
+      case "scheduled":
+        return "warning";
       case "cancelado":
-        return "default"
+      case "cancelled":
+        return "destructive";
       default:
-        return "default"
+        return "default";
     }
-  }
+  };
 
-  // Ensure arrays exist with fallbacks
-  const safeAppointments = patient.appointments || []
-  const safeProcedures = patient.procedures || []
+  const safeAppointments = patient.appointments || [];
+  const safeProcedures = patient.procedures || [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -122,12 +114,14 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{patient.phone}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  Último contato: {new Date(patient.lastContact).toLocaleDateString("pt-BR")}
-                </span>
-              </div>
+              {patient.lastContact && (
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    Último contato: {new Date(patient.lastContact).toLocaleDateString("pt-BR")}
+                  </span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -192,7 +186,7 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
                 <div className="space-y-3">
                   {safeAppointments.map((appointment, index) => (
                     <div
-                      key={index}
+                      key={appointment.id || index}
                       className="flex items-center justify-between p-4 bg-card border rounded-lg hover:border-primary/20 transition-colors"
                     >
                       <div className="flex items-center gap-4">
@@ -202,7 +196,8 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
                         <div>
                           <p className="font-medium">{appointment.type}</p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(appointment.date).toLocaleDateString("pt-BR")}
+                            {new Date(appointment.date).toLocaleDateString("pt-BR", {timeZone: 'UTC'})}
+                            {appointment.time ? ` às ${appointment.time}`: ''}
                           </p>
                         </div>
                       </div>
@@ -230,7 +225,7 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
                 <div className="space-y-3">
                   {safeProcedures.map((procedure, index) => (
                     <div
-                      key={index}
+                      key={procedure.id || index}
                       className="flex items-center justify-between p-4 bg-card border rounded-lg hover:border-primary/20 transition-colors"
                     >
                       <div className="flex items-center gap-4">
@@ -240,7 +235,7 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
                         <div>
                           <p className="font-medium">{procedure.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(procedure.date).toLocaleDateString("pt-BR")}
+                            {new Date(procedure.date + "T00:00:00Z").toLocaleDateString("pt-BR", {timeZone: 'UTC'})}
                           </p>
                         </div>
                       </div>
@@ -263,32 +258,11 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
 
             <TabsContent value="financial" className="p-6 pt-4 animate-fade-in">
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-6 text-center">
-                      <DollarSign className="h-8 w-8 mx-auto mb-2 text-primary/60" />
-                      <p className="text-2xl font-bold">R$ {(patient.totalSpent || 0).toLocaleString("pt-BR")}</p>
-                      <p className="text-sm text-muted-foreground">Total Gasto</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6 text-center">
-                      <CheckCircle className="h-8 w-8 mx-auto mb-2 text-success-foreground/60" />
-                      <p className="text-2xl font-bold">{safeProcedures.length}</p>
-                      <p className="text-sm text-muted-foreground">Procedimentos</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-6 text-center">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 text-info-foreground/60" />
-                      <p className="text-2xl font-bold">{safeAppointments.length}</p>
-                      <p className="text-sm text-muted-foreground">Agendamentos</p>
-                    </CardContent>
-                  </Card>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card><CardContent className="p-6 text-center"><DollarSign className="h-8 w-8 mx-auto mb-2 text-primary/60" /><p className="text-2xl font-bold">R$ {(patient.totalSpent || 0).toLocaleString("pt-BR")}</p><p className="text-sm text-muted-foreground">Total Gasto</p></CardContent></Card>
+                  <Card><CardContent className="p-6 text-center"><CheckCircle className="h-8 w-8 mx-auto mb-2 text-success-foreground/60" /><p className="text-2xl font-bold">{safeProcedures.length}</p><p className="text-sm text-muted-foreground">Procedimentos</p></CardContent></Card>
+                  <Card><CardContent className="p-6 text-center"><Calendar className="h-8 w-8 mx-auto mb-2 text-info-foreground/60" /><p className="text-2xl font-bold">{safeAppointments.length}</p><p className="text-sm text-muted-foreground">Agendamentos</p></CardContent></Card>
                 </div>
-
                 <Card>
                   <CardContent className="p-6">
                     <h3 className="text-lg font-medium mb-4">Histórico Financeiro</h3>
@@ -296,26 +270,12 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
                       {safeProcedures.length > 0 ? (
                         safeProcedures.map((procedure, index) => (
                           <div key={index} className="flex justify-between items-center pb-4 border-b last:border-0">
-                            <div>
-                              <p className="font-medium">{procedure.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(procedure.date).toLocaleDateString("pt-BR")}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium">R$ {procedure.value.toLocaleString("pt-BR")}</p>
-                              <div className="flex items-center gap-1 text-sm text-success-foreground">
-                                <TrendingUp className="h-3 w-3" />
-                                <span>R$ {procedure.profit.toLocaleString("pt-BR")}</span>
-                              </div>
-                            </div>
+                            <div><p className="font-medium">{procedure.name}</p><p className="text-sm text-muted-foreground">{new Date(procedure.date + "T00:00:00Z").toLocaleDateString("pt-BR", {timeZone: 'UTC'})}</p></div>
+                            <div className="text-right"><p className="font-medium">R$ {procedure.value.toLocaleString("pt-BR")}</p><div className="flex items-center gap-1 text-sm text-success-foreground"><TrendingUp className="h-3 w-3" /><span>R$ {procedure.profit.toLocaleString("pt-BR")}</span></div></div>
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-8">
-                          <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                          <p className="text-muted-foreground">Nenhum histórico financeiro disponível</p>
-                        </div>
+                        <div className="text-center py-8"><DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" /><p className="text-muted-foreground">Nenhum histórico financeiro disponível</p></div>
                       )}
                     </div>
                   </CardContent>

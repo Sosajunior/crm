@@ -11,6 +11,7 @@ interface AppointmentListItem {
   status: string;
   duration: number;
   notes?: string;
+  valueCharged?: number;
 }
 interface AppointmentDetail extends AppointmentListItem {}
 
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             status: dbAppointment.status,
             duration: dbAppointment.duration_minutes,
             notes: dbAppointment.notes,
-            value: parseFloat(dbAppointment.value_charged || 0),
+            valueCharged: parseFloat(dbAppointment.value_charged || 0),
         };
         return NextResponse.json(appointmentResponse);
     } catch (error) {
@@ -75,9 +76,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const values: any[] = [];
 
     for (const key in body) {
-      if (allowedUpdates[key] && body[key] !== undefined && body[key] !== null) {
+      if (allowedUpdates[key as keyof UpdateAppointmentPayload] && body[key as keyof UpdateAppointmentPayload] !== undefined && body[key as keyof UpdateAppointmentPayload] !== null) {
         updates.push(`${allowedUpdates[key]} = ?`);
-        let value = body[key];
+        let value = body[key as keyof UpdateAppointmentPayload];
         if (key === 'appointmentDatetime' && value) {
             // MySQL DATETIME format: 'YYYY-MM-DD HH:MM:SS'
             value = new Date(value).toISOString().slice(0, 19).replace('T', ' ');

@@ -45,9 +45,6 @@ export function ScheduleMetrics({ metrics, viewMode }: ScheduleMetricsProps) {
   }
 
   const safeMetrics: ScheduleMetricsData = {
-    totalAppointments: 0,
-    confirmedAppointments: 0,
-    occupancyRate: 0,
     noShowRate: 0,
     ...metrics, // Sobrescreve com os valores reais
   };

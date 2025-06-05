@@ -1,20 +1,24 @@
+// app/page.tsx
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { Bell, Plus, Settings } from "lucide-react" // Activity removido pois StatusBadge tem seu próprio
-import { Sidebar } from "@/components/modern-sidebar"
-import { DashboardOverview } from "@/components/dashboard-overview"
-import { PatientManagement } from "@/components/patient-management"
-import { FunnelAnalysis } from "@/components/funnel-analysis"
-import { FinancialOverview } from "@/components/financial-overview"
-import { ScheduleManagement } from "@/components/schedule-management"
-import { NotificationsDropdown } from "@/components/notifications-dropdown"
-import { NewPatientModal } from "@/components/new-patient-modal"
-import { SettingsModal } from "@/components/settings-modal"
-import { PatientProfile } from "@/components/patient-profile"
+import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Bell, Plus, Settings } from "lucide-react";
+import { Sidebar } from "@/components/modern-sidebar";
+import { DashboardOverview } from "@/components/dashboard-overview";
+import { PatientManagement } from "@/components/patient-management";
+import { FunnelAnalysis } from "@/components/funnel-analysis";
+import { FinancialOverview } from "@/components/financial-overview";
+import { ScheduleManagement } from "@/components/schedule-management";
+import { NotificationsDropdown } from "@/components/notifications-dropdown";
+import { NewPatientModal } from "@/components/new-patient-modal";
+import { SettingsModal, type ClinicSettings } from "@/components/settings-modal";
+import { PatientProfile } from "@/components/patient-profile";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { useToast } from "@/hooks/use-toast";
 
-// --- INÍCIO DAS INTERFACES (Idealmente em types/index.ts) ---
+// --- INÍCIO DAS INTERFACES (Fonte da Verdade) ---
 export interface MetricValues {
   atendimentosIniciados: number;
   duvidasSanadas: number;
@@ -30,8 +34,8 @@ export interface MetricValues {
 
 export interface PatientAppointment {
   id?: string;
-  date: string; // ISO string
-  time?: string; // HH:mm
+  date: string;
+  time?: string;
   type: string;
   status: string;
   value?: number;
@@ -39,7 +43,7 @@ export interface PatientAppointment {
 
 export interface PatientProcedure {
   id?: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   name: string;
   status: string;
   value: number;
@@ -60,10 +64,17 @@ export interface PatientListItem {
   avatar?: string | null;
   nextAppointment?: string | null;
   totalValue?: number;
-  procedures?: number; // contagem
+  proceduresCount?: number; // CORRIGIDO: Renomeado de 'procedures' para evitar conflito
 }
 
-export interface PatientDetail extends PatientListItem {
+export interface CreatePatientPayload {
+  name: string; email: string; phone: string; birthDate?: string | null; address?: string;
+  city?: string; zipCode?: string; emergencyContact?: string; emergencyPhone?: string;
+  medicalHistory?: string; allergies?: string; medications?: string;
+  insuranceProvider?: string; insuranceNumber?: string; preferredContact?: string; notes?: string;
+}
+
+export interface PatientDetail extends PatientListItem { // CORRIGIDO: Não precisa mais do Omit
   birthDate?: string | null;
   address?: string | null;
   city?: string | null;
@@ -79,7 +90,7 @@ export interface PatientDetail extends PatientListItem {
   notes?: string | null;
   createdAt?: string;
   appointments: PatientAppointment[];
-  procedures: PatientProcedure[]; // Anteriormente procedureHistory
+  procedures: PatientProcedure[]; // Padronizado para 'procedures'
   totalSpent: number;
   totalProfit: number;
 }
@@ -89,42 +100,24 @@ export interface NotificationItem {
   type: "info" | "warning" | "success" | "error" | "reminder";
   title: string;
   message: string;
-  time: string; // "X min atrás"
+  time: string;
   read: boolean;
   createdAt?: string;
 }
-
-export interface ClinicSettings {
-    clinicName?: string;
-    doctorName?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    cro?: string;
-    specialty?: string;
-    emailNotifications?: boolean;
-    smsNotifications?: boolean;
-    whatsappNotifications?: boolean;
-    appointmentReminders?: boolean;
-    reminderTime?: string;
-    theme?: string;
-    language?: string;
-    dateFormat?: string;
-    timeFormat?: string;
-    currency?: string;
-    workingHours?: any;
-    appointmentDuration?: string;
-    bufferTime?: string;
-    maxAdvanceBooking?: string;
-    taxRate?: string;
-    paymentMethods?: any;
-    sessionTimeout?: string;
-    dataRetention?: string;
-}
 // --- FIM DAS INTERFACES ---
 
-export default function ModernDentalCRM() {
-  const [activeView, setActiveView] = useState("patients");
+export default function ModernDentalCRMPage() {
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ModernDentalCRM />
+      <Toaster />
+    </ThemeProvider>
+  )
+}
+
+function ModernDentalCRM() {
+  const { toast } = useToast();
+  const [activeView, setActiveView] = useState("dashboard");
   const [selectedPeriod, setSelectedPeriod] = useState("today");
 
   const [currentMetrics, setCurrentMetrics] = useState<MetricValues | null>(null);
@@ -139,52 +132,48 @@ export default function ModernDentalCRM() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({
-    metrics: true,
-    patients: true,
-    notifications: true,
-    settings: true,
-    selectedPatient: false,
+    metrics: true, patients: true, notifications: true, settings: true, selectedPatient: false,
   });
 
-  const setLoading = (key: string, value: boolean) => {
-    setIsLoading(prev => ({ ...prev, [key]: value }));
-  };
+  const setLoading = (key: string, value: boolean) => setIsLoading(prev => ({ ...prev, [key]: value }));
 
   const fetchMetrics = useCallback(async (period: string) => {
     setLoading("metrics", true);
     try {
       const response = await fetch(`/api/metrics?period=${period}`);
-      if (!response.ok) throw new Error(`Metrics API error! status: ${response.status}`);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Metrics API error! status: ${response.status}`);}
       const data = await response.json();
       setCurrentMetrics(data.metrics);
     } catch (error) {
       console.error("Error fetching metrics:", error);
       setCurrentMetrics(null);
+      toast({ title: "Erro ao buscar métricas", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
       setLoading("metrics", false);
     }
-  }, []);
+  }, [toast]);
 
   const fetchPatients = useCallback(async (period: string, searchTerm: string = "") => {
     setLoading("patients", true);
     try {
       const response = await fetch(`/api/patients?period=${period}&search=${encodeURIComponent(searchTerm)}`);
-      if (!response.ok) throw new Error(`Patients API error! status: ${response.status}`);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Patients API error! status: ${response.status}`);}
       const data = await response.json();
       setPatients(data.patients || []);
     } catch (error) {
       console.error("Error fetching patients:", error);
       setPatients([]);
+      toast({ title: "Erro ao buscar pacientes", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
       setLoading("patients", false);
     }
-  }, []);
+  }, [toast]);
 
   const fetchNotifications = useCallback(async () => {
     setLoading("notifications", true);
     try {
       const response = await fetch('/api/notifications');
-      if (!response.ok) throw new Error(`Notifications API error! status: ${response.status}`);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Notifications API error! status: ${response.status}`);}
       const data = await response.json();
       setNotifications(data || []);
     } catch (error) {
@@ -199,56 +188,49 @@ export default function ModernDentalCRM() {
     setLoading("settings", true);
     try {
       const response = await fetch('/api/settings');
-      if (!response.ok) throw new Error(`Settings API error! status: ${response.status}`);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Settings API error! status: ${response.status}`);}
       const data: ClinicSettings = await response.json();
       setCurrentSettings(data || {});
     } catch (error) {
       console.error("Error fetching settings:", error);
       setCurrentSettings({});
+      toast({ title: "Erro ao buscar configurações", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
       setLoading("settings", false);
     }
-  }, []);
+  }, [toast]);
 
-  useEffect(() => {
-    fetchMetrics(selectedPeriod);
-  }, [selectedPeriod, fetchMetrics]);
-
-  useEffect(() => {
-    if (activeView === "patients" || activeView === "dashboard") {
-      fetchPatients(selectedPeriod);
-    }
-  }, [activeView, selectedPeriod, fetchPatients]);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  useEffect(() => { fetchMetrics(selectedPeriod); }, [selectedPeriod, fetchMetrics]);
+  useEffect(() => { if (activeView === "patients" || activeView === "dashboard") fetchPatients(selectedPeriod); }, [activeView, selectedPeriod, fetchPatients]);
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  useEffect(() => { if (showSettingsModal && !currentSettings) fetchSettings(); }, [showSettingsModal, currentSettings, fetchSettings]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
       const response = await fetch(`/api/notifications/${id}`, { method: 'PUT' });
-      if (!response.ok) throw new Error('Failed to mark as read');
+      if (!response.ok) throw new Error('Falha ao marcar como lida');
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    } catch (error) { console.error("Error marking notification as read:", error); }
+    } catch (error) { console.error("Error marking notification as read:", error); toast({title: "Erro", description: "Não foi possível marcar a notificação como lida.", variant: "destructive"}) }
   };
 
   const handleMarkAllAsRead = async () => {
     try {
       const response = await fetch('/api/notifications/mark-all-read', { method: 'PUT' });
-      if (!response.ok) throw new Error('Failed to mark all as read');
+      if (!response.ok) throw new Error('Falha ao marcar todas como lidas');
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch (error) { console.error("Error marking all notifications as read:", error); }
+    } catch (error) { console.error("Error marking all as read:", error); toast({title: "Erro", description: "Não foi possível marcar todas as notificações como lidas.", variant: "destructive"}) }
   };
 
   const handleDismissNotification = async (id: string) => {
      try {
       const response = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to dismiss notification');
+      if (!response.ok) throw new Error('Falha ao dispensar notificação');
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch (error) { console.error("Error dismissing notification:", error); }
+    } catch (error) { console.error("Error dismissing notification:", error); toast({title: "Erro", description: "Não foi possível dispensar a notificação.", variant: "destructive"}) }
   };
 
-  const handleSaveNewPatient = async (patientData: Omit<PatientDetail, 'id' | 'appointments' | 'procedures' | 'totalSpent' | 'totalProfit' | 'lastContact' | 'funnelStage' | 'status' | 'avatar' | 'nextAppointment' | 'totalValue' | 'proceduresCount' | 'createdAt'>) => {
+  const handleSaveNewPatient = async (patientData: CreatePatientPayload) => {
+    setLoading("patients", true);
     try {
       const response = await fetch('/api/patients', {
         method: 'POST',
@@ -256,17 +238,21 @@ export default function ModernDentalCRM() {
         body: JSON.stringify(patientData),
       });
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || 'Failed to save patient');
-      setPatients(prev => [result.patient, ...prev]);
+      if (!response.ok || !result.success) throw new Error(result.error || 'Falha ao salvar paciente');
+      
+      await fetchPatients(selectedPeriod); 
       setShowNewPatientModal(false);
-      alert("Paciente cadastrado com sucesso!");
+      toast({ title: "Sucesso!", description: "Paciente cadastrado com sucesso!" });
     } catch (error) {
       console.error("Error saving new patient:", error);
-      alert(`Erro: ${error.message}`);
+      toast({ title: "Erro ao salvar paciente", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+    } finally {
+      setLoading("patients", false);
     }
   };
 
   const handleSaveSettings = async (settingsData: ClinicSettings) => {
+    setLoading("settings", true);
     try {
       const response = await fetch('/api/settings', {
         method: 'PUT',
@@ -274,13 +260,15 @@ export default function ModernDentalCRM() {
         body: JSON.stringify(settingsData),
       });
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || 'Failed to save settings');
+      if (!response.ok || !result.success) throw new Error(result.error || 'Falha ao salvar configurações');
       setCurrentSettings(result.settings);
-      alert("Configurações salvas com sucesso!");
+      toast({ title: "Sucesso!", description: "Configurações salvas com sucesso!" });
       setShowSettingsModal(false);
     } catch (error) {
       console.error("Error saving settings:", error);
-      alert(`Erro: ${error.message}`);
+      toast({ title: "Erro ao salvar configurações", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+    } finally {
+      setLoading("settings", false);
     }
   };
 
@@ -289,21 +277,28 @@ export default function ModernDentalCRM() {
     setLoading("selectedPatient", true);
     try {
       const response = await fetch(`/api/patients/${patientListItem.id}`);
-      if (!response.ok) throw new Error(`Failed to fetch patient details for ${patientListItem.name}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `Falha ao buscar detalhes do paciente ${patientListItem.name}`);
+      }
       const data = await response.json();
-      setSelectedPatientDetail(data.patient as PatientDetail);
+      setSelectedPatientDetail({
+        ...(data.patient as PatientDetail),
+        procedures: data.patient.procedures || [],
+        appointments: data.patient.appointments || [],
+      });
     } catch (error) {
       console.error(error);
       setSelectedPatientDetail(null);
-      alert(`Erro ao carregar detalhes: ${error.message}`);
+      toast({ title: "Erro ao carregar paciente", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
       setLoading("selectedPatient", false);
     }
   };
 
   const renderContent = () => {
+    if (isLoading.selectedPatient) return <div className="flex justify-center items-center h-64"><p>Carregando perfil do paciente...</p></div>;
     if (activeView === "patients" && selectedPatientDetail) {
-        if (isLoading.selectedPatient) return <div className="flex justify-center items-center h-64"><p>Carregando perfil do paciente...</p></div>;
         return <PatientProfile patient={selectedPatientDetail} onBack={() => setSelectedPatientDetail(null)} />;
     }
 
@@ -315,7 +310,7 @@ export default function ModernDentalCRM() {
         if (isLoading.patients) return <div className="flex justify-center items-center h-64"><p>Carregando pacientes...</p></div>;
         return <PatientManagement patients={patients} onSelectPatient={handleSelectPatient} selectedPeriod={selectedPeriod} />;
       case "schedule":
-        return <ScheduleManagement selectedPeriod={selectedPeriod} />; // Este componente gerenciará seu próprio estado de dados
+        return <ScheduleManagement selectedPeriod={selectedPeriod} />;
       case "funnel":
         if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando análise de funil...</p></div>;
         return <FunnelAnalysis metrics={currentMetrics} period={selectedPeriod} />;
@@ -338,7 +333,7 @@ export default function ModernDentalCRM() {
           setActiveView(view);
         }}
         onSettingsClick={() => {
-            if (!currentSettings) fetchSettings(); // Busca apenas se ainda não carregou
+            if (!currentSettings && !isLoading.settings) fetchSettings();
             setShowSettingsModal(true);
         }}
       />
@@ -429,16 +424,19 @@ export default function ModernDentalCRM() {
         onSave={handleSaveNewPatient}
       />
 
-      {showSettingsModal && (
+      {showSettingsModal && currentSettings !== null && (
         <SettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           onSave={handleSaveSettings}
-          // Passa as configurações atuais para o modal. O modal deve lidar com o estado de isLoadingSettings se necessário.
-          // Ou você pode adicionar um spinner aqui: isLoading.settings ? <Spinner/> : <SettingsModal ... />
           initialSettings={currentSettings}
         />
       )}
+       {showSettingsModal && isLoading.settings && (
+          <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[60]">
+            <p>Carregando configurações...</p>
+          </div>
+        )}
     </div>
   );
 }

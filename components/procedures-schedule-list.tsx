@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { CheckCircle, Clock, DollarSign, User, Search, MoreHorizontal } from "lucide-react"
+import { CheckCircle, Clock, DollarSign, User, Search, MoreHorizontal, XCircle } from "lucide-react"
 // Incluir DropdownMenu e seus componentes se necessário para ações
 import {
   DropdownMenu,
@@ -62,7 +62,7 @@ export function ProceduresScheduleList({ procedures: initialProcedures, selected
         if (!response.ok) throw new Error(`Falha ao atualizar status do procedimento ${procedureId}`);
         onUpdate(); // Sinaliza para recarregar
         alert(`Procedimento ${procedureId} atualizado para ${getStatusLabel(newStatus)}.`);
-    } catch (error) {
+    } catch (error: any) {
         console.error(error);
         alert(`Erro ao atualizar procedimento: ${error.message}`);
     }
