@@ -1,207 +1,178 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { TrendingUp, Star, AlertTriangle, BadgeCheck, BadgeDollarSign } from "lucide-react"; // Ícones para categorias
 
-interface Procedure {
-  id: string
-  name: string
-  category: string
-  price: number
-  cost: number
-  profit: number
-  margin: number
-  quantity: number
-  totalRevenue: number
-  totalCost: number
-  totalProfit: number
+// Interface do FinancialDashboard ou types/index.ts
+export interface ProcedureCatalogItemCalculated {
+  id: string;
+  name: string;
+  category: string;
+  defaultPrice: number;
+  defaultCost: number;
+  profit: number;
+  margin: number;
+  quantity?: number; // Quantidade vendida no período
+  totalRevenue?: number; // Receita total no período
+  totalCost?: number; // Custo total no período
+  totalProfit?: number; // Lucro total no período
 }
 
 interface ProfitabilityChartProps {
-  procedures: Procedure[]
+  procedures: ProcedureCatalogItemCalculated[]; // Recebe já com quantity e totais se disponíveis
 }
 
+const categoryIconMapping: Record<string, React.ElementType> = {
+    "Estrela": Star,
+    "Vaca Leiteira": BadgeDollarSign,
+    "Oportunidade": TrendingUp,
+    "Questionável": AlertTriangle,
+};
+const categoryColorMapping: Record<string, string> = {
+    "Estrela": "bg-success-muted text-success-foreground border-success-foreground/30",
+    "Vaca Leiteira": "bg-info-muted text-info-foreground border-info-foreground/30",
+    "Oportunidade": "bg-warning-muted text-warning-foreground border-warning-foreground/30",
+    "Questionável": "bg-destructive/20 text-destructive border-destructive/30",
+};
+
+
 export function ProfitabilityChart({ procedures }: ProfitabilityChartProps) {
-  // Ordenar por lucratividade total
-  const sortedByProfit = [...procedures].sort((a, b) => b.totalProfit - a.totalProfit)
+  if (!procedures || procedures.length === 0) {
+    return <div className="text-center py-10 text-muted-foreground">Sem dados de procedimentos para exibir análise de lucratividade.</div>;
+  }
 
-  // Ordenar por margem
-  const sortedByMargin = [...procedures].sort((a, b) => b.margin - a.margin)
+  // Certificar que totalProfit e margin estão presentes e são números para ordenação
+  const safeProcedures = procedures.map(p => ({
+      ...p,
+      totalProfit: p.totalProfit || 0, // Default para ordenação
+      margin: p.margin || 0,
+      quantity: p.quantity || 0,
+  }));
 
-  const maxProfit = Math.max(...procedures.map((p) => p.totalProfit))
-  const maxMargin = Math.max(...procedures.map((p) => p.margin))
+  const sortedByTotalProfit = [...safeProcedures].sort((a, b) => b.totalProfit - a.totalProfit);
+  const sortedByMargin = [...safeProcedures].sort((a, b) => b.margin - a.margin);
+
+  const maxTotalProfit = Math.max(1, ...sortedByTotalProfit.map((p) => p.totalProfit));
+  const maxMargin = Math.max(1, ...sortedByMargin.map((p) => p.margin));
+
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Ranking por Lucro Total */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ranking por Lucro Total</CardTitle>
-          <CardDescription>Procedimentos ordenados por lucro absoluto</CardDescription>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <Card className="card-hover">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">Ranking por Lucro Total</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Procedimentos ordenados por lucro absoluto no período.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {sortedByProfit.map((procedure, index) => {
-              const width = (procedure.totalProfit / maxProfit) * 100
-              const isTop3 = index < 3
-
-              return (
-                <div key={procedure.id} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-sm font-bold w-6 h-6 rounded-full flex items-center justify-center text-white ${
-                          index === 0
-                            ? "bg-yellow-500"
-                            : index === 1
-                              ? "bg-gray-400"
-                              : index === 2
-                                ? "bg-orange-600"
-                                : "bg-gray-300"
-                        }`}
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="font-medium">{procedure.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-green-600">
-                        R$ {procedure.totalProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-xs text-gray-500">{procedure.quantity} realizados</div>
-                    </div>
+        <CardContent className="space-y-3 md:space-y-4 max-h-[400px] overflow-y-auto pr-2">
+          {sortedByTotalProfit.map((procedure, index) => {
+            const width = (procedure.totalProfit / maxTotalProfit) * 100;
+            return (
+              <div key={procedure.id} className="space-y-1">
+                <div className="flex justify-between items-center text-xs md:text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold w-5 h-5 rounded-full flex items-center justify-center text-primary-foreground text-[10px] md:text-xs ${index < 3 ? 'bg-primary' : 'bg-muted-foreground/50'}`}>
+                      {index + 1}
+                    </span>
+                    <span className="font-medium text-foreground">{procedure.name}</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className={`h-3 rounded-full transition-all duration-500 ${
-                        isTop3 ? "bg-gradient-to-r from-green-500 to-green-600" : "bg-green-400"
-                      }`}
-                      style={{ width: `${width}%` }}
-                    />
+                  <div className="text-right">
+                    <div className="font-semibold text-success-foreground">
+                      R$ {procedure.totalProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-[10px] md:text-xs text-muted-foreground">{procedure.quantity} realizados</div>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+                <div className="w-full bg-muted rounded-full h-2 md:h-2.5">
+                  <div className={`h-full rounded-full bg-gradient-to-r from-success-foreground/70 to-success-foreground transition-all duration-300 ease-out`}
+                       style={{ width: `${Math.max(width, 2)}%` }} /> {/* Min width for visibility */}
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
-      {/* Ranking por Margem */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ranking por Margem de Lucro</CardTitle>
-          <CardDescription>Procedimentos ordenados por percentual de margem</CardDescription>
+      <Card className="card-hover">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">Ranking por Margem de Lucro</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Procedimentos ordenados por percentual de margem.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {sortedByMargin.map((procedure, index) => {
-              const width = (procedure.margin / maxMargin) * 100
-              const isTop3 = index < 3
-
-              return (
-                <div key={procedure.id} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-sm font-bold w-6 h-6 rounded-full flex items-center justify-center text-white ${
-                          index === 0
-                            ? "bg-yellow-500"
-                            : index === 1
-                              ? "bg-gray-400"
-                              : index === 2
-                                ? "bg-orange-600"
-                                : "bg-gray-300"
-                        }`}
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="font-medium">{procedure.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-blue-600">{procedure.margin.toFixed(1)}%</div>
-                      <div className="text-xs text-gray-500">
-                        R$ {procedure.profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} por unidade
-                      </div>
-                    </div>
+        <CardContent className="space-y-3 md:space-y-4 max-h-[400px] overflow-y-auto pr-2">
+          {sortedByMargin.map((procedure, index) => {
+            const width = (procedure.margin / maxMargin) * 100;
+            return (
+              <div key={procedure.id} className="space-y-1">
+                <div className="flex justify-between items-center text-xs md:text-sm">
+                  <div className="flex items-center gap-2">
+                     <span className={`font-bold w-5 h-5 rounded-full flex items-center justify-center text-primary-foreground text-[10px] md:text-xs ${index < 3 ? 'bg-primary' : 'bg-muted-foreground/50'}`}>
+                      {index + 1}
+                    </span>
+                    <span className="font-medium text-foreground">{procedure.name}</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className={`h-3 rounded-full transition-all duration-500 ${
-                        isTop3 ? "bg-gradient-to-r from-blue-500 to-blue-600" : "bg-blue-400"
-                      }`}
-                      style={{ width: `${width}%` }}
-                    />
+                  <div className="text-right">
+                    <div className="font-semibold text-info-foreground">{procedure.margin.toFixed(1)}%</div>
+                    <div className="text-[10px] md:text-xs text-muted-foreground">
+                      R$ {procedure.profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} /unid.
+                    </div>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+                <div className="w-full bg-muted rounded-full h-2 md:h-2.5">
+                  <div className={`h-full rounded-full bg-gradient-to-r from-info-foreground/70 to-info-foreground transition-all duration-300 ease-out`}
+                       style={{ width: `${Math.max(width, 2)}%` }} />
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
-      {/* Análise de Eficiência */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Matriz de Eficiência</CardTitle>
-          <CardDescription>Análise combinada de volume vs margem de lucro</CardDescription>
+      <Card className="lg:col-span-2 card-hover">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">Matriz de Eficiência</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Análise combinada de volume vs. margem de lucro.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {procedures.map((procedure) => {
-              // Classificar baseado em volume e margem
-              const isHighVolume = procedure.quantity >= 15
-              const isHighMargin = procedure.margin >= 65
+          {safeProcedures.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                {safeProcedures.map((procedure) => {
+                const isHighVolume = (procedure.quantity || 0) >= (safeProcedures.reduce((sum, p) => sum + (p.quantity || 0), 0) / safeProcedures.length); // Acima da média
+                const isHighMargin = procedure.margin >= 65; // Limiar arbitrário para alta margem
 
-              let classification = ""
-              let bgColor = ""
+                let classification = "";
+                if (isHighVolume && isHighMargin) classification = "Estrela";
+                else if (isHighVolume && !isHighMargin) classification = "Vaca Leiteira";
+                else if (!isHighVolume && isHighMargin) classification = "Oportunidade";
+                else classification = "Questionável";
 
-              if (isHighVolume && isHighMargin) {
-                classification = "Estrela"
-                bgColor = "bg-green-100 border-green-300"
-              } else if (isHighVolume && !isHighMargin) {
-                classification = "Vaca Leiteira"
-                bgColor = "bg-blue-100 border-blue-300"
-              } else if (!isHighVolume && isHighMargin) {
-                classification = "Oportunidade"
-                bgColor = "bg-yellow-100 border-yellow-300"
-              } else {
-                classification = "Questionável"
-                bgColor = "bg-red-100 border-red-300"
-              }
+                const Icon = categoryIconMapping[classification] || BadgeCheck;
+                const bgColorClass = categoryColorMapping[classification] || "bg-muted text-muted-foreground border-border";
 
-              return (
-                <div key={procedure.id} className={`p-4 rounded-lg border-2 ${bgColor}`}>
-                  <div className="font-medium text-sm mb-2">{procedure.name}</div>
-                  <div className="text-xs text-gray-600 mb-2">{classification}</div>
-                  <div className="space-y-1 text-xs">
-                    <div>Volume: {procedure.quantity}</div>
-                    <div>Margem: {procedure.margin.toFixed(1)}%</div>
-                    <div>Lucro: R$ {procedure.totalProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-200 border border-green-300 rounded"></div>
-              <span>Estrela (Alto Volume + Alta Margem)</span>
+                return (
+                    <div key={procedure.id} className={`p-3 rounded-lg border ${bgColorClass} space-y-1`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                        <Icon className="w-3.5 h-3.5 opacity-80" />
+                        <div className="font-semibold text-xs md:text-sm truncate" title={procedure.name}>{procedure.name}</div>
+                    </div>
+                    <div className="text-[10px] md:text-xs opacity-90">Volume: {procedure.quantity || 0}</div>
+                    <div className="text-[10px] md:text-xs opacity-90">Margem: {procedure.margin.toFixed(1)}%</div>
+                    <div className="text-[10px] md:text-xs opacity-90 font-medium">Lucro: R$ {procedure.totalProfit?.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || '0,00'}</div>
+                    </div>
+                );
+                })}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-200 border border-blue-300 rounded"></div>
-              <span>Vaca Leiteira (Alto Volume + Baixa Margem)</span>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhum procedimento para analisar eficiência.</p>
+          )}
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-[10px] md:text-xs text-muted-foreground">
+                {Object.entries(categoryIconMapping).map(([key, Icon]) => (
+                    <div key={key} className="flex items-center gap-1.5">
+                        <Icon className={`w-3 h-3 ${categoryColorMapping[key]?.split(' text-')[1]?.split(' ')[0] || 'text-muted-foreground'}`} /> {/* Extrai a cor do texto */}
+                        <span>{key}</span>
+                    </div>
+                ))}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-yellow-200 border border-yellow-300 rounded"></div>
-              <span>Oportunidade (Baixo Volume + Alta Margem)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-200 border border-red-300 rounded"></div>
-              <span>Questionável (Baixo Volume + Baixa Margem)</span>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

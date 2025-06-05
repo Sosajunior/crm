@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, Bell, Settings, CalendarIcon, X, Edit, Trash2, Check } from "lucide-react"
+import { ChevronLeft, ChevronRight, Bell, Settings, CalendarIcon, X, Edit, Trash2, Check, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -17,8 +17,10 @@ import {
   isSameDay,
   differenceInDays,
   eachDayOfInterval,
+  compareAsc,
 } from "date-fns"
 import type { DateRange } from "react-day-picker"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
 // Sample data with more events across different dates
 const events = [
@@ -30,8 +32,8 @@ const events = [
     duration: "1h",
     description: "Weekly team sync to discuss project progress and upcoming milestones.",
     participants: [
-      { name: "John Doe", email: "john@example.com" },
-      { name: "Jane Smith", email: "jane@example.com" },
+      { name: "John Doe", avatar: "/placeholder.svg?height=32&width=32", email: "john@example.com" },
+      { name: "Jane Smith", avatar: "/placeholder.svg?height=32&width=32", email: "jane@example.com" },
     ],
     category: "work",
     color: "border-l-blue-500",
@@ -45,7 +47,7 @@ const events = [
     endTime: "8:00 AM",
     duration: "1h",
     description: "Daily workout session focusing on cardio and strength training.",
-    participants: [{ name: "Mike Johnson", email: "mike@example.com" }],
+    participants: [{ name: "Mike Johnson", avatar: "/placeholder.svg?height=32&width=32", email: "mike@example.com" }],
     category: "personal",
     color: "border-l-green-500",
     date: new Date(2024, 7, 14), // August 14, 2024
@@ -59,8 +61,8 @@ const events = [
     duration: "2h",
     description: "Design review and implementation of new Twitter integration features.",
     participants: [
-      { name: "Sarah Wilson", email: "sarah@example.com" },
-      { name: "Tom Brown", email: "tom@example.com" },
+      { name: "Sarah Wilson", avatar: "/placeholder.svg?height=32&width=32", email: "sarah@example.com" },
+      { name: "Tom Brown", avatar: "/placeholder.svg?height=32&width=32", email: "tom@example.com" },
     ],
     category: "work",
     color: "border-l-purple-500",
@@ -75,8 +77,8 @@ const events = [
     duration: "1h",
     description: "Informal breakfast meeting with potential clients to discuss partnership opportunities.",
     participants: [
-      { name: "Alex Davis",  email: "alex@example.com" },
-      { name: "Emma Taylor",  email: "emma@example.com" },
+      { name: "Alex Davis", avatar: "/placeholder.svg?height=32&width=32", email: "alex@example.com" },
+      { name: "Emma Taylor", avatar: "/placeholder.svg?height=32&width=32", email: "emma@example.com" },
     ],
     category: "work",
     color: "border-l-pink-500",
@@ -90,7 +92,7 @@ const events = [
     endTime: "3:00 PM",
     duration: "1h",
     description: "Quarterly performance evaluation and goal setting session.",
-    participants: [{ name: "David Lee",  email: "david@example.com" }],
+    participants: [{ name: "David Lee", avatar: "/placeholder.svg?height=32&width=32", email: "david@example.com" }],
     category: "work",
     color: "border-l-orange-500",
     date: new Date(2024, 7, 16), // August 16, 2024
@@ -103,7 +105,7 @@ const events = [
     endTime: "12:00 PM",
     duration: "1h",
     description: "Weekly check-in with key client to review project status.",
-    participants: [{ name: "Lisa Chen",  email: "lisa@example.com" }],
+    participants: [{ name: "Lisa Chen", avatar: "/placeholder.svg?height=32&width=32", email: "lisa@example.com" }],
     category: "work",
     color: "border-l-indigo-500",
     date: new Date(2024, 7, 17), // August 17, 2024
@@ -117,8 +119,8 @@ const events = [
     duration: "1h",
     description: "Monthly team building lunch at the new restaurant downtown.",
     participants: [
-      { name: "Mark Wilson",  email: "mark@example.com" },
-      { name: "Anna Garcia",  email: "anna@example.com" },
+      { name: "Mark Wilson", avatar: "/placeholder.svg?height=32&width=32", email: "mark@example.com" },
+      { name: "Anna Garcia", avatar: "/placeholder.svg?height=32&width=32", email: "anna@example.com" },
     ],
     category: "team",
     color: "border-l-yellow-500",
@@ -132,7 +134,7 @@ const events = [
     endTime: "4:00 PM",
     duration: "1h",
     description: "Annual health checkup with Dr. Smith.",
-    participants: [{ name: "Dr. Smith",  email: "dr.smith@clinic.com" }],
+    participants: [{ name: "Dr. Smith", avatar: "/placeholder.svg?height=32&width=32", email: "dr.smith@clinic.com" }],
     category: "personal",
     color: "border-l-red-500",
     date: new Date(2024, 7, 19), // August 19, 2024
@@ -163,6 +165,9 @@ export default function CalendarComponent() {
   const [selectedEvent, setSelectedEvent] = useState<(typeof events)[0] | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+
+  // Use media query to detect mobile view
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   // Determine if we have a single date or date range
   const isSingleDate = !dateRange?.to || isSameDay(dateRange.from!, dateRange.to)
@@ -206,6 +211,26 @@ export default function CalendarComponent() {
   }
 
   const filteredEvents = getFilteredEvents()
+
+  // Group events by date for mobile view
+  const getEventsByDate = () => {
+    const eventsByDate: Record<string, typeof events> = {}
+
+    filteredEvents.forEach((event) => {
+      const dateKey = format(event.date, "yyyy-MM-dd")
+      if (!eventsByDate[dateKey]) {
+        eventsByDate[dateKey] = []
+      }
+      eventsByDate[dateKey].push(event)
+    })
+
+    // Sort events by time within each date
+    Object.keys(eventsByDate).forEach((dateKey) => {
+      eventsByDate[dateKey].sort((a, b) => a.timeSlot - b.timeSlot)
+    })
+
+    return eventsByDate
+  }
 
   const handleEventClick = (event: (typeof events)[0]) => {
     setSelectedEvent(event)
@@ -276,15 +301,166 @@ export default function CalendarComponent() {
     }
   }
 
+  // Render mobile view with dates as vertical list
+  const renderMobileView = () => {
+    const eventsByDate = getEventsByDate()
+    const sortedDates = Object.keys(eventsByDate).sort((a, b) => compareAsc(new Date(a), new Date(b)))
+
+    return (
+      <div className="space-y-6">
+        {sortedDates.map((dateKey) => {
+          const date = new Date(dateKey)
+          const dayEvents = eventsByDate[dateKey]
+
+          return (
+            <div key={dateKey} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              {/* Date Header */}
+              <div className="bg-gray-50 p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-gray-500">{format(date, "EEEE").toUpperCase()}</div>
+                    <div className="text-xl font-semibold text-gray-900">{format(date, "MMMM d, yyyy")}</div>
+                  </div>
+                  <Badge variant="outline" className="text-sm">
+                    {dayEvents.length} {dayEvents.length === 1 ? "event" : "events"}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Events List */}
+              <div className="divide-y divide-gray-100">
+                {dayEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleEventClick(event)}
+                  >
+                    <div className={`flex border-l-4 ${event.color} pl-3`}>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{event.title}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Clock className="w-3 h-3 text-gray-500" />
+                          <span className="text-sm text-gray-600">
+                            {event.time} - {event.endTime}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex -space-x-1">
+                            {event.participants.length > 3 && (
+                              <div className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                                <span className="text-xs text-gray-600">+{event.participants.length - 3}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+
+        {sortedDates.length === 0 && (
+          <div className="text-center py-12">
+            <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Events</h3>
+            <p className="text-gray-500">No events found for the selected date range.</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Render desktop view with time slots
+  const renderDesktopView = () => {
+    return (
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        {timeSlots.map((timeSlot) => (
+          <div
+            key={timeSlot.hour}
+            className="grid border-b border-gray-100 last:border-b-0"
+            style={{ gridTemplateColumns: `80px repeat(${displayDates.length}, 1fr)` }}
+          >
+            {/* Time Label */}
+            <div className="w-20 p-4 text-sm text-gray-500 border-r border-gray-100 bg-gray-50 flex items-start">
+              {timeSlot.label}
+            </div>
+
+            {/* Day Columns */}
+            {displayDates.map((day) => (
+              <div
+                key={`${day.toISOString()}-${timeSlot.hour}`}
+                className="min-h-[80px] p-2 border-r border-gray-100 last:border-r-0"
+              >
+                {getEventsForDayAndTime(day, timeSlot.hour).map((event) => (
+                  <Card
+                    key={event.id}
+                    className={`mb-2 border-l-4 ${event.color} hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]`}
+                    onClick={() => handleEventClick(event)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-sm text-gray-900 leading-tight">{event.title}</h4>
+                        <span className="text-xs text-gray-500">{event.duration}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-1">
+                          
+                          {event.participants.length > 3 && (
+                            <div className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                              <span className="text-xs text-gray-600">+{event.participants.length - 3}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">{event.time}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="min-w-screen bg-white">
+    <div className="min-h-screen bg-white">
+      {/* Top Navigation */}
+      <header className="border-b border-gray-200 px-4 md:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <nav className="hidden md:flex items-center gap-8">
+            <span className="text-gray-500 hover:text-gray-700 cursor-pointer">Contacts</span>
+            <span className="text-gray-500 hover:text-gray-700 cursor-pointer">Files</span>
+            <span className="text-gray-500 hover:text-gray-700 cursor-pointer">Chat</span>
+            <span className="text-blue-500 border-b-2 border-blue-500 pb-1 font-medium">Calendar</span>
+          </nav>
+
+          <h1 className="text-xl font-semibold text-gray-900 md:hidden">Calendar</h1>
+
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="hidden md:flex">
+              <Bell className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm">
+              <Settings className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
       {/* Calendar Header */}
-      <div className="px-6 py-6 ">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-semibold text-gray-900">{getHeaderTitle()}</h1>
+      <div className="px-4 md:px-6 py-4 md:py-6">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <div className="flex items-center gap-2 md:gap-4">
+            <h1 className="text-xl md:text-3xl font-semibold text-gray-900">{getHeaderTitle()}</h1>
             {!isSingleDate && (
-              <Badge variant="secondary" className="text-sm">
+              <Badge variant="secondary" className="text-xs md:text-sm">
                 {differenceInDays(dateRange?.to!, dateRange?.from!) + 1} days
               </Badge>
             )}
@@ -294,7 +470,8 @@ export default function CalendarComponent() {
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
                   <CalendarIcon className="w-4 h-4 mr-2" />
-                  {getDateRangeText()}
+                  <span className="hidden md:inline">{getDateRangeText()}</span>
+                  <span className="md:hidden">Date</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -342,10 +519,10 @@ export default function CalendarComponent() {
           </div>
         </div>
 
-        {/* Day Headers */}
-        {displayDates.length > 0 && (
+        {/* Day Headers - Only show on desktop or single date mobile view */}
+        {displayDates.length > 0 && !isMobile && (
           <div
-            className={`grid gap-4 mb-4`}
+            className="hidden md:grid gap-4 mb-4"
             style={{ gridTemplateColumns: `80px repeat(${displayDates.length}, 1fr)` }}
           >
             <div className="w-20"></div> {/* Time column spacer */}
@@ -365,56 +542,61 @@ export default function CalendarComponent() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="w-full px-6">
+      <div className="px-4 md:px-6 pb-6">
         {displayDates.length > 0 ? (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            {timeSlots.map((timeSlot) => (
-              <div
-                key={timeSlot.hour}
-                className="grid border-b border-gray-100 last:border-b-0"
-                style={{ gridTemplateColumns: `80px repeat(${displayDates.length}, 1fr)` }}
-              >
-                {/* Time Label */}
-                <div className="w-20 p-4 text-sm text-gray-500 border-r border-gray-100 bg-gray-50 flex items-start">
-                  {timeSlot.label}
-                </div>
+          <>
+            {/* Mobile view with stacked list for date range */}
+            {isMobile && !isSingleDate ? (
+              renderMobileView()
+            ) : isMobile && isSingleDate ? (
+              // Single date on mobile still shows time slots
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                {timeSlots.map((timeSlot) => (
+                  <div key={timeSlot.hour} className="border-b border-gray-100 last:border-b-0">
+                    {/* Time Label */}
+                    <div className="p-3 text-sm text-gray-500 bg-gray-50 border-b border-gray-100">
+                      {timeSlot.label}
+                    </div>
 
-                {/* Day Columns */}
-                {displayDates.map((day, dayIndex) => (
-                  <div
-                    key={`${day.toISOString()}-${timeSlot.hour}`}
-                    className="min-h-[80px] p-2 border-r border-gray-100 last:border-r-0"
-                  >
-                    {getEventsForDayAndTime(day, timeSlot.hour).map((event) => (
-                      <Card
-                        key={event.id}
-                        className={`mb-2 border-l-4 ${event.color} hover:shadow-md transition-all cursor-pointer hover:scale-[1.02]`}
-                        onClick={() => handleEventClick(event)}
-                      >
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-medium text-sm text-gray-900 leading-tight">{event.title}</h4>
-                            <span className="text-xs text-gray-500">{event.duration}</span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <div className="flex -space-x-1">
-                              {event.participants.length > 3 && (
-                                <div className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                                  <span className="text-xs text-gray-600">+{event.participants.length - 3}</span>
-                                </div>
-                              )}
+                    {/* Events */}
+                    <div className="p-2">
+                      {getEventsForDayAndTime(displayDates[0], timeSlot.hour).map((event) => (
+                        <Card
+                          key={event.id}
+                          className={`mb-2 border-l-4 ${event.color} hover:shadow-md transition-all cursor-pointer`}
+                          onClick={() => handleEventClick(event)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="font-medium text-sm text-gray-900 leading-tight">{event.title}</h4>
+                              <span className="text-xs text-gray-500">{event.duration}</span>
                             </div>
-                            <span className="text-xs text-gray-500">{event.time}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+
+                            <div className="flex items-center gap-2">
+                              <div className="flex -space-x-1">
+                                {event.participants.length > 3 && (
+                                  <div className="w-5 h-5 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                                    <span className="text-xs text-gray-600">+{event.participants.length - 3}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      {getEventsForDayAndTime(displayDates[0], timeSlot.hour).length === 0 && (
+                        <div className="h-4"></div> // Empty space to maintain height
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
+            ) : (
+              // Desktop view with time slots
+              renderDesktopView()
+            )}
+          </>
         ) : (
           <div className="text-center py-12">
             <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />

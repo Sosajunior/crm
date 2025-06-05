@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { StatusBadge } from "@/components/ui/status-badge"
-import { Bell, Activity, Plus, Settings } from "lucide-react"
+import { Bell, Plus, Settings } from "lucide-react" // Activity removido pois StatusBadge tem seu próprio
 import { Sidebar } from "@/components/modern-sidebar"
 import { DashboardOverview } from "@/components/dashboard-overview"
 import { PatientManagement } from "@/components/patient-management"
@@ -13,311 +12,433 @@ import { ScheduleManagement } from "@/components/schedule-management"
 import { NotificationsDropdown } from "@/components/notifications-dropdown"
 import { NewPatientModal } from "@/components/new-patient-modal"
 import { SettingsModal } from "@/components/settings-modal"
+import { PatientProfile } from "@/components/patient-profile"
 
-// Mock data
-const mockData = {
-  today: {
-    atendimentosIniciados: 12,
-    duvidasSanadas: 8,
-    procedimentosOferecidos: 6,
-    agendamentosRealizados: 4,
-    confirmacoesAgendamento: 3,
-    comparecimentos: 2,
-    procedimentosRealizados: 1,
-    faturamento: 850.0,
-    gastos: 320.0,
-    lucro: 530.0,
-  },
-  week: {
-    atendimentosIniciados: 85,
-    duvidasSanadas: 68,
-    procedimentosOferecidos: 45,
-    agendamentosRealizados: 32,
-    confirmacoesAgendamento: 28,
-    comparecimentos: 24,
-    procedimentosRealizados: 18,
-    faturamento: 15300.0,
-    gastos: 5940.0,
-    lucro: 9360.0,
-  },
-  month: {
-    atendimentosIniciados: 340,
-    duvidasSanadas: 285,
-    procedimentosOferecidos: 198,
-    agendamentosRealizados: 145,
-    confirmacoesAgendamento: 128,
-    comparecimentos: 112,
-    procedimentosRealizados: 89,
-    faturamento: 67500.0,
-    gastos: 25650.0,
-    lucro: 41850.0,
-  },
+// --- INÍCIO DAS INTERFACES (Idealmente em types/index.ts) ---
+export interface MetricValues {
+  atendimentosIniciados: number;
+  duvidasSanadas: number;
+  procedimentosOferecidos: number;
+  agendamentosRealizados: number;
+  confirmacoesAgendamento: number;
+  comparecimentos: number;
+  procedimentosRealizados: number;
+  faturamento: number;
+  gastos: number;
+  lucro: number;
 }
 
-const mockPatients = [
-  {
-    id: "1",
-    name: "Maria Silva",
-    email: "maria.silva@email.com",
-    phone: "(11) 99999-9999",
-    lastContact: new Date().toISOString().split("T")[0], // Today's date
-    funnelStage: "procedimento_realizado",
-    avatar: "MS",
-    status: "active",
-    nextAppointment: "2024-02-15",
-    totalValue: 1250.0,
-    procedures: 3,
-    appointments: [
-      { date: "2024-01-15", time: "14:30", type: "Limpeza", status: "realizado", value: 150 },
-      { date: "2024-01-10", time: "10:00", type: "Consulta", status: "realizado", value: 100 },
-    ],
-    procedureHistory: [
-      { date: "2024-01-15", name: "Limpeza Dental", status: "concluído", value: 150, cost: 45, profit: 105 },
-      { date: "2024-01-10", name: "Avaliação Inicial", status: "concluído", value: 100, cost: 25, profit: 75 },
-      { date: "2024-01-05", name: "Consulta Inicial", status: "concluído", value: 80, cost: 20, profit: 60 },
-    ],
-    totalSpent: 1250.0,
-    totalProfit: 850.0,
-  },
-  {
-    id: "2",
-    name: "João Santos",
-    email: "joao.santos@email.com",
-    phone: "(11) 88888-8888",
-    lastContact: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Yesterday
-    funnelStage: "agendamento_confirmado",
-    avatar: "JS",
-    status: "pending",
-    nextAppointment: "2024-01-20",
-    totalValue: 0,
-    procedures: 0,
-    appointments: [{ date: "2024-01-20", time: "15:00", type: "Consulta", status: "confirmado", value: 100 }],
-    procedureHistory: [],
-    totalSpent: 0,
-    totalProfit: 0,
-  },
-  {
-    id: "3",
-    name: "Ana Costa",
-    email: "ana.costa@email.com",
-    phone: "(11) 77777-7777",
-    lastContact: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 2 days ago
-    funnelStage: "duvida_sanada",
-    avatar: "AC",
-    status: "active",
-    nextAppointment: "2024-01-25",
-    totalValue: 800.0,
-    procedures: 2,
-    appointments: [{ date: "2024-01-25", time: "09:30", type: "Avaliação", status: "confirmado", value: 120 }],
-    procedureHistory: [
-      { date: "2024-01-12", name: "Consulta Inicial", status: "concluído", value: 80, cost: 20, profit: 60 },
-      { date: "2024-01-18", name: "Radiografia", status: "concluído", value: 120, cost: 30, profit: 90 },
-    ],
-    totalSpent: 800.0,
-    totalProfit: 600.0,
-  },
-]
+export interface PatientAppointment {
+  id?: string;
+  date: string; // ISO string
+  time?: string; // HH:mm
+  type: string;
+  status: string;
+  value?: number;
+}
+
+export interface PatientProcedure {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  status: string;
+  value: number;
+  cost: number;
+  profit: number;
+  category?: string;
+  margin?: number;
+}
+
+export interface PatientListItem {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  lastContact: string | null;
+  funnelStage: string;
+  status: string;
+  avatar?: string | null;
+  nextAppointment?: string | null;
+  totalValue?: number;
+  procedures?: number; // contagem
+}
+
+export interface PatientDetail extends PatientListItem {
+  birthDate?: string | null;
+  address?: string | null;
+  city?: string | null;
+  zipCode?: string | null;
+  emergencyContact?: string | null;
+  emergencyPhone?: string | null;
+  medicalHistory?: string | null;
+  allergies?: string | null;
+  medications?: string | null;
+  insuranceProvider?: string | null;
+  insuranceNumber?: string | null;
+  preferredContact?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  appointments: PatientAppointment[];
+  procedures: PatientProcedure[]; // Anteriormente procedureHistory
+  totalSpent: number;
+  totalProfit: number;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: "info" | "warning" | "success" | "error" | "reminder";
+  title: string;
+  message: string;
+  time: string; // "X min atrás"
+  read: boolean;
+  createdAt?: string;
+}
+
+export interface ClinicSettings {
+    clinicName?: string;
+    doctorName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    cro?: string;
+    specialty?: string;
+    emailNotifications?: boolean;
+    smsNotifications?: boolean;
+    whatsappNotifications?: boolean;
+    appointmentReminders?: boolean;
+    reminderTime?: string;
+    theme?: string;
+    language?: string;
+    dateFormat?: string;
+    timeFormat?: string;
+    currency?: string;
+    workingHours?: any;
+    appointmentDuration?: string;
+    bufferTime?: string;
+    maxAdvanceBooking?: string;
+    taxRate?: string;
+    paymentMethods?: any;
+    sessionTimeout?: string;
+    dataRetention?: string;
+}
+// --- FIM DAS INTERFACES ---
 
 export default function ModernDentalCRM() {
-  const [activeView, setActiveView] = useState("patients")
-  const [selectedPeriod, setSelectedPeriod] = useState("today")
-  const [selectedPatient, setSelectedPatient] = useState(null)
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "info",
-      title: "Novo agendamento",
-      message: "Maria Silva agendou consulta para amanhã",
-      time: "5 min atrás",
-      read: false,
-    },
-    {
-      id: 2,
-      type: "warning",
-      title: "Confirmação pendente",
-      message: "João Santos precisa confirmar consulta",
-      time: "1 hora atrás",
-      read: false,
-    },
-    {
-      id: 3,
-      type: "success",
-      title: "Procedimento concluído",
-      message: "Limpeza dental finalizada com sucesso",
-      time: "2 horas atrás",
-      read: true,
-    },
-  ])
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showNewPatientModal, setShowNewPatientModal] = useState(false)
-  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [activeView, setActiveView] = useState("patients");
+  const [selectedPeriod, setSelectedPeriod] = useState("today");
 
-  const handleMarkAsRead = (id: number) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-  }
+  const [currentMetrics, setCurrentMetrics] = useState<MetricValues | null>(null);
+  const [patients, setPatients] = useState<PatientListItem[]>([]);
+  const [selectedPatientDetail, setSelectedPatientDetail] = useState<PatientDetail | null>(null);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-  }
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [currentSettings, setCurrentSettings] = useState<ClinicSettings | null>(null);
 
-  const handleDismissNotification = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
-  }
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showNewPatientModal, setShowNewPatientModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const handleSaveNewPatient = (patientData: any) => {
-    console.log("Saving new patient:", patientData)
-    // In a real app, this would make an API call
-    alert("Paciente cadastrado com sucesso!")
-  }
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({
+    metrics: true,
+    patients: true,
+    notifications: true,
+    settings: true,
+    selectedPatient: false,
+  });
 
-  const handleSaveSettings = (settingsData: any) => {
-    console.log("Saving settings:", settingsData)
-    // In a real app, this would make an API call
-    alert("Configurações salvas com sucesso!")
-  }
+  const setLoading = (key: string, value: boolean) => {
+    setIsLoading(prev => ({ ...prev, [key]: value }));
+  };
 
-  const currentMetrics = mockData[selectedPeriod]
+  const fetchMetrics = useCallback(async (period: string) => {
+    setLoading("metrics", true);
+    try {
+      const response = await fetch(`/api/metrics?period=${period}`);
+      if (!response.ok) throw new Error(`Metrics API error! status: ${response.status}`);
+      const data = await response.json();
+      setCurrentMetrics(data.metrics);
+    } catch (error) {
+      console.error("Error fetching metrics:", error);
+      setCurrentMetrics(null);
+    } finally {
+      setLoading("metrics", false);
+    }
+  }, []);
+
+  const fetchPatients = useCallback(async (period: string, searchTerm: string = "") => {
+    setLoading("patients", true);
+    try {
+      const response = await fetch(`/api/patients?period=${period}&search=${encodeURIComponent(searchTerm)}`);
+      if (!response.ok) throw new Error(`Patients API error! status: ${response.status}`);
+      const data = await response.json();
+      setPatients(data.patients || []);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      setPatients([]);
+    } finally {
+      setLoading("patients", false);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    setLoading("notifications", true);
+    try {
+      const response = await fetch('/api/notifications');
+      if (!response.ok) throw new Error(`Notifications API error! status: ${response.status}`);
+      const data = await response.json();
+      setNotifications(data || []);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      setNotifications([]);
+    } finally {
+      setLoading("notifications", false);
+    }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    setLoading("settings", true);
+    try {
+      const response = await fetch('/api/settings');
+      if (!response.ok) throw new Error(`Settings API error! status: ${response.status}`);
+      const data: ClinicSettings = await response.json();
+      setCurrentSettings(data || {});
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      setCurrentSettings({});
+    } finally {
+      setLoading("settings", false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMetrics(selectedPeriod);
+  }, [selectedPeriod, fetchMetrics]);
+
+  useEffect(() => {
+    if (activeView === "patients" || activeView === "dashboard") {
+      fetchPatients(selectedPeriod);
+    }
+  }, [activeView, selectedPeriod, fetchPatients]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${id}`, { method: 'PUT' });
+      if (!response.ok) throw new Error('Failed to mark as read');
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (error) { console.error("Error marking notification as read:", error); }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications/mark-all-read', { method: 'PUT' });
+      if (!response.ok) throw new Error('Failed to mark all as read');
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (error) { console.error("Error marking all notifications as read:", error); }
+  };
+
+  const handleDismissNotification = async (id: string) => {
+     try {
+      const response = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to dismiss notification');
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (error) { console.error("Error dismissing notification:", error); }
+  };
+
+  const handleSaveNewPatient = async (patientData: Omit<PatientDetail, 'id' | 'appointments' | 'procedures' | 'totalSpent' | 'totalProfit' | 'lastContact' | 'funnelStage' | 'status' | 'avatar' | 'nextAppointment' | 'totalValue' | 'proceduresCount' | 'createdAt'>) => {
+    try {
+      const response = await fetch('/api/patients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patientData),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Failed to save patient');
+      setPatients(prev => [result.patient, ...prev]);
+      setShowNewPatientModal(false);
+      alert("Paciente cadastrado com sucesso!");
+    } catch (error) {
+      console.error("Error saving new patient:", error);
+      alert(`Erro: ${error.message}`);
+    }
+  };
+
+  const handleSaveSettings = async (settingsData: ClinicSettings) => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsData),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Failed to save settings');
+      setCurrentSettings(result.settings);
+      alert("Configurações salvas com sucesso!");
+      setShowSettingsModal(false);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      alert(`Erro: ${error.message}`);
+    }
+  };
+
+  const handleSelectPatient = async (patientListItem: PatientListItem) => {
+    if (!patientListItem?.id) { setSelectedPatientDetail(null); return; }
+    setLoading("selectedPatient", true);
+    try {
+      const response = await fetch(`/api/patients/${patientListItem.id}`);
+      if (!response.ok) throw new Error(`Failed to fetch patient details for ${patientListItem.name}`);
+      const data = await response.json();
+      setSelectedPatientDetail(data.patient as PatientDetail);
+    } catch (error) {
+      console.error(error);
+      setSelectedPatientDetail(null);
+      alert(`Erro ao carregar detalhes: ${error.message}`);
+    } finally {
+      setLoading("selectedPatient", false);
+    }
+  };
 
   const renderContent = () => {
+    if (activeView === "patients" && selectedPatientDetail) {
+        if (isLoading.selectedPatient) return <div className="flex justify-center items-center h-64"><p>Carregando perfil do paciente...</p></div>;
+        return <PatientProfile patient={selectedPatientDetail} onBack={() => setSelectedPatientDetail(null)} />;
+    }
+
     switch (activeView) {
       case "dashboard":
-        return <DashboardOverview metrics={currentMetrics} period={selectedPeriod} />
+        if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando dashboard...</p></div>;
+        return <DashboardOverview metrics={currentMetrics} period={selectedPeriod} />;
       case "patients":
-        return (
-          <PatientManagement
-            patients={mockPatients}
-            onSelectPatient={setSelectedPatient}
-            selectedPeriod={selectedPeriod}
-            onNewPatient={() => setShowNewPatientModal(true)}
-          />
-        )
+        if (isLoading.patients) return <div className="flex justify-center items-center h-64"><p>Carregando pacientes...</p></div>;
+        return <PatientManagement patients={patients} onSelectPatient={handleSelectPatient} selectedPeriod={selectedPeriod} />;
       case "schedule":
-        return <ScheduleManagement selectedPeriod={selectedPeriod} />
+        return <ScheduleManagement selectedPeriod={selectedPeriod} />; // Este componente gerenciará seu próprio estado de dados
       case "funnel":
-        return <FunnelAnalysis metrics={currentMetrics} period={selectedPeriod} />
+        if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando análise de funil...</p></div>;
+        return <FunnelAnalysis metrics={currentMetrics} period={selectedPeriod} />;
       case "financial":
-        return <FinancialOverview metrics={currentMetrics} period={selectedPeriod} />
+        if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando financeiro...</p></div>;
+        return <FinancialOverview metrics={currentMetrics} period={selectedPeriod} />;
       default:
-        return (
-          <PatientManagement
-            patients={mockPatients}
-            onSelectPatient={setSelectedPatient}
-            selectedPeriod={selectedPeriod}
-            onNewPatient={() => setShowNewPatientModal(true)}
-          />
-        )
+        return <div className="flex justify-center items-center h-64"><p>Selecione uma visualização.</p></div>;
     }
-  }
+  };
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-background text-foreground">
       <Sidebar
         activeView={activeView}
-        onViewChange={setActiveView}
-        onSettingsClick={() => setShowSettingsModal(true)}
+        onViewChange={(view) => {
+          setSelectedPatientDetail(null);
+          setActiveView(view);
+        }}
+        onSettingsClick={() => {
+            if (!currentSettings) fetchSettings(); // Busca apenas se ainda não carregou
+            setShowSettingsModal(true);
+        }}
       />
 
-      {/* Main Content */}
       <div className="md:ml-64">
-        {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 md:px-6">
           <div className="flex flex-1 items-center justify-between">
             <div>
-              <h1 className="text-lg font-medium">
-                {activeView === "dashboard" && "Dashboard"}
-                {activeView === "patients" && "Pacientes"}
-                {activeView === "schedule" && "Agenda"}
+              <h1 className="text-lg font-semibold text-foreground">
+                {activeView === "dashboard" && "Dashboard Principal"}
+                {activeView === "patients" && (selectedPatientDetail ? selectedPatientDetail.name : "Pacientes")}
+                {activeView === "schedule" && "Agenda e Métricas"}
                 {activeView === "funnel" && "Análise de Funil"}
-                {activeView === "financial" && "Financeiro"}
+                {activeView === "financial" && "Visão Financeira"}
               </h1>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Period Selector */}
-              <div className="hidden md:flex bg-secondary rounded-lg p-1">
-                {["today", "week", "month"].map((period) => (
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="hidden md:flex bg-muted rounded-md p-1">
+                {["today", "week", "month"].map((p) => (
                   <Button
-                    key={period}
-                    variant={selectedPeriod === period ? "default" : "ghost"}
+                    key={p}
+                    variant={selectedPeriod === p ? "default" : "ghost"}
                     size="sm"
-                    onClick={() => setSelectedPeriod(period)}
-                    className="text-xs"
+                    onClick={() => setSelectedPeriod(p)}
+                    className={`text-xs px-3 py-1 h-8 ${selectedPeriod === p ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                   >
-                    {period === "today" && "Hoje"}
-                    {period === "week" && "Semana"}
-                    {period === "month" && "Mês"}
+                    {p === "today" && "Hoje"}
+                    {p === "week" && "Semana"}
+                    {p === "month" && "Mês"}
                   </Button>
                 ))}
               </div>
 
-              {/* Quick Actions */}
-              <Button size="sm" className="hidden md:flex" onClick={() => setShowNewPatientModal(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Paciente
+              <Button size="sm" className="hidden md:flex bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowNewPatientModal(true)}>
+                <Plus className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Novo Paciente</span>
               </Button>
 
-              {/* Notifications */}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
-                className="relative"
+                className="relative h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
                 <Bell className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                  {notifications.filter((n) => !n.read).length}
-                </span>
+                {unreadNotificationsCount > 0 && (
+                   <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
               </Button>
 
-              {/* Settings */}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
-                onClick={() => setShowSettingsModal(true)}
-                className="hidden md:flex"
+                onClick={() => {
+                    if (!currentSettings && !isLoading.settings) fetchSettings();
+                    setShowSettingsModal(true);
+                }}
+                className="hidden md:flex h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
               >
                 <Settings className="h-4 w-4" />
               </Button>
-
-              {/* Status */}
-              <StatusBadge variant="success" className="hidden md:flex">
-                <Activity className="h-3 w-3 mr-1" />
-                Online
-              </StatusBadge>
             </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="p-6">
-          <div className="mx-auto max-w-7xl">{renderContent()}</div>
+        <main className="p-4 md:p-6">
+          {renderContent()}
         </main>
       </div>
 
-      {/* Notifications Dropdown */}
-      <NotificationsDropdown
-        notifications={notifications}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        onDismiss={handleDismissNotification}
-        isOpen={showNotifications}
-        onClose={() => setShowNotifications(false)}
-      />
+      {showNotifications && (
+        <NotificationsDropdown
+          notifications={notifications}
+          onMarkAsRead={handleMarkAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          onDismiss={handleDismissNotification}
+          isOpen={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
+      )}
 
-      {/* New Patient Modal */}
       <NewPatientModal
         isOpen={showNewPatientModal}
         onClose={() => setShowNewPatientModal(false)}
         onSave={handleSaveNewPatient}
       />
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        onSave={handleSaveSettings}
-      />
+      {showSettingsModal && (
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          onSave={handleSaveSettings}
+          // Passa as configurações atuais para o modal. O modal deve lidar com o estado de isLoadingSettings se necessário.
+          // Ou você pode adicionar um spinner aqui: isLoading.settings ? <Spinner/> : <SettingsModal ... />
+          initialSettings={currentSettings}
+        />
+      )}
     </div>
-  )
+  );
 }

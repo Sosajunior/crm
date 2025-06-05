@@ -1,197 +1,172 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+
+interface CalendarDayEventSummary {
+  appointments: { count: number; confirmed: number; pending: number };
+  procedures: { count: number; completed: number; scheduled: number };
+}
+
+interface CalendarEventsData {
+  [dateKey: string]: CalendarDayEventSummary; // dateKey: "YYYY-MM-DD"
+}
 
 interface CalendarViewProps {
-  selectedDate: Date
-  onDateSelect: (date: Date) => void
+  selectedDate: Date;
+  onDateSelect: (date: Date) => void;
 }
 
 export function CalendarView({ selectedDate, onDateSelect }: CalendarViewProps) {
-  const currentMonth = selectedDate.getMonth()
-  const currentYear = selectedDate.getFullYear()
+  const [currentDisplayMonth, setCurrentDisplayMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+  const [monthEvents, setMonthEvents] = useState<CalendarEventsData>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Mock calendar data
-  const calendarEvents = {
-    "2024-01-15": [
-      { type: "appointment", count: 3, status: "confirmed" },
-      { type: "procedure", count: 2, status: "completed" },
-    ],
-    "2024-01-16": [
-      { type: "appointment", count: 5, status: "confirmed" },
-      { type: "procedure", count: 3, status: "scheduled" },
-    ],
-    "2024-01-17": [
-      { type: "appointment", count: 2, status: "pending" },
-      { type: "procedure", count: 1, status: "completed" },
-    ],
-    "2024-01-18": [
-      { type: "appointment", count: 4, status: "confirmed" },
-      { type: "procedure", count: 4, status: "scheduled" },
-    ],
-    "2024-01-19": [
-      { type: "appointment", count: 6, status: "confirmed" },
-      { type: "procedure", count: 2, status: "completed" },
-    ],
-  }
+  const fetchMonthEventsSummary = useCallback(async (monthDate: Date) => {
+    setIsLoading(true);
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth() + 1; // API geralmente espera mês 1-12
 
-  const getDaysInMonth = (month: number, year: number) => {
-    return new Date(year, month + 1, 0).getDate()
-  }
+    try {
+      // Você precisaria de um endpoint na API que retorne um resumo de eventos por dia para um dado mês/ano
+      // Ex: GET /api/calendar-summary?year=2024&month=7
+      // Por agora, vamos simular uma resposta.
+      // const response = await fetch(`/api/calendar-summary?year=${year}&month=${month}`);
+      // if (!response.ok) throw new Error('Failed to fetch calendar summary');
+      // const data: CalendarEventsData = await response.json();
+      // setMonthEvents(data);
 
-  const getFirstDayOfMonth = (month: number, year: number) => {
-    return new Date(year, month, 1).getDay()
-  }
+      // Simulação:
+      const simulatedData: CalendarEventsData = {};
+      const daysInMonth = new Date(year, month, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (Math.random() > 0.5) { // Simula alguns dias com eventos
+            const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            simulatedData[dateKey] = {
+                appointments: { count: Math.floor(Math.random() * 5) + 1, confirmed: Math.floor(Math.random() * 3), pending: Math.floor(Math.random() * 2) },
+                procedures: { count: Math.floor(Math.random() * 4), completed: Math.floor(Math.random() * 2), scheduled: Math.floor(Math.random() * 2) },
+            };
+        }
+      }
+      setMonthEvents(simulatedData);
+
+    } catch (error) {
+      console.error("Error fetching calendar summary:", error);
+      setMonthEvents({});
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMonthEventsSummary(currentDisplayMonth);
+  }, [currentDisplayMonth, fetchMonthEventsSummary]);
+
+  // Atualiza o mês exibido se selectedDate mudar externamente para um mês diferente
+  useEffect(() => {
+    if (selectedDate.getFullYear() !== currentDisplayMonth.getFullYear() || selectedDate.getMonth() !== currentDisplayMonth.getMonth()) {
+        setCurrentDisplayMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    }
+  }, [selectedDate, currentDisplayMonth]);
+
+
+  const getDaysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const getFirstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay(); // 0=Sun, 1=Mon,...
 
   const navigateMonth = (direction: "prev" | "next") => {
-    const newDate = new Date(selectedDate)
-    if (direction === "next") {
-      newDate.setMonth(newDate.getMonth() + 1)
-    } else {
-      newDate.setMonth(newDate.getMonth() - 1)
-    }
-    onDateSelect(newDate)
-  }
+    setCurrentDisplayMonth(prev => {
+      const newMonth = new Date(prev);
+      newMonth.setMonth(prev.getMonth() + (direction === "next" ? 1 : -1));
+      return newMonth;
+    });
+  };
 
-  const daysInMonth = getDaysInMonth(currentMonth, currentYear)
-  const firstDay = getFirstDayOfMonth(currentMonth, currentYear)
-  const monthNames = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ]
-  const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+  const daysInCurrentMonth = getDaysInMonth(currentDisplayMonth);
+  const firstDayOfCurrentMonth = getFirstDayOfMonth(currentDisplayMonth);
+  const monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-  const formatDateKey = (day: number) => {
-    return `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-  }
+  const formatDateKey = (year: number, month: number, day: number): string => {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
 
   const isToday = (day: number) => {
-    const today = new Date()
-    return today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear
-  }
+    const today = new Date();
+    return today.getDate() === day && today.getMonth() === currentDisplayMonth.getMonth() && today.getFullYear() === currentDisplayMonth.getFullYear();
+  };
 
-  const isSelected = (day: number) => {
-    return (
-      selectedDate.getDate() === day &&
-      selectedDate.getMonth() === currentMonth &&
-      selectedDate.getFullYear() === currentYear
-    )
-  }
+  const isSelectedDay = (day: number) => {
+    return selectedDate.getDate() === day && selectedDate.getMonth() === currentDisplayMonth.getMonth() && selectedDate.getFullYear() === currentDisplayMonth.getFullYear();
+  };
 
   return (
     <Card className="card-hover">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={() => navigateMonth("prev")} className="hover:bg-secondary">
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <span className="text-foreground font-medium min-w-[150px] text-center">
-              {monthNames[currentMonth]} {currentYear}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => navigateMonth("next")} className="hover:bg-secondary">
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth("prev")} className="h-9 w-9 hover:bg-accent">
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <CardTitle className="text-lg font-semibold text-foreground">
+            {monthNames[currentDisplayMonth.getMonth()]} {currentDisplayMonth.getFullYear()}
+          </CardTitle>
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth("next")} className="h-9 w-9 hover:bg-accent">
+            <ChevronRight className="w-5 h-5" />
+          </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Day Headers */}
-          {dayNames.map((day) => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
-              {day}
-            </div>
-          ))}
+      <CardContent className="pt-2">
+        {isLoading && <div className="text-center py-10">Carregando calendário...</div>}
+        {!isLoading && (
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {dayNames.map((dayName) => (
+                <div key={dayName} className="p-2 text-xs font-medium text-muted-foreground">{dayName}</div>
+              ))}
+              {Array.from({ length: firstDayOfCurrentMonth }, (_, i) => (
+                <div key={`empty-start-${i}`} className="p-1 border border-transparent h-20 md:h-24" />
+              ))}
+              {Array.from({ length: daysInCurrentMonth }, (_, i) => {
+                const day = i + 1;
+                const dateKey = formatDateKey(currentDisplayMonth.getFullYear(), currentDisplayMonth.getMonth(), day);
+                const dayEventsSummary = monthEvents[dateKey];
 
-          {/* Empty cells for days before month starts */}
-          {Array.from({ length: firstDay }, (_, i) => (
-            <div key={`empty-${i}`} className="p-2 h-20" />
-          ))}
-
-          {/* Calendar Days */}
-          {Array.from({ length: daysInMonth }, (_, i) => {
-            const day = i + 1
-            const dateKey = formatDateKey(day)
-            const events = calendarEvents[dateKey] || []
-            const hasEvents = events.length > 0
-
-            return (
-              <div
-                key={day}
-                className={`p-2 h-20 border border-border rounded cursor-pointer transition-colors ${
-                  isSelected(day)
-                    ? "bg-primary border-primary text-primary-foreground"
-                    : isToday(day)
-                      ? "bg-secondary border-border"
-                      : "hover:bg-secondary/50"
-                }`}
-                onClick={() => {
-                  const newDate = new Date(currentYear, currentMonth, day)
-                  onDateSelect(newDate)
-                }}
-              >
-                <div className="flex flex-col h-full">
-                  <span
-                    className={`text-sm font-medium ${
-                      isSelected(day) ? "text-primary-foreground" : isToday(day) ? "text-foreground" : "text-foreground"
-                    }`}
+                return (
+                  <div
+                    key={day}
+                    className={`p-1.5 md:p-2 border rounded-md cursor-pointer transition-colors h-20 md:h-24 flex flex-col
+                      ${isSelectedDay(day) ? "bg-primary border-primary text-primary-foreground" :
+                       isToday(day) ? "bg-accent border-border" : "border-border hover:bg-accent/50"}`}
+                    onClick={() => onDateSelect(new Date(currentDisplayMonth.getFullYear(), currentDisplayMonth.getMonth(), day))}
                   >
-                    {day}
-                  </span>
-
-                  {hasEvents && (
-                    <div className="flex-1 mt-1 space-y-1">
-                      {events.slice(0, 2).map((event, index) => (
-                        <div key={index} className="text-xs">
-                          <Badge
-                            className={`text-xs px-1 py-0 ${
-                              event.type === "appointment" ? "bg-blue-900 text-blue-300" : "bg-green-900 text-green-300"
-                            }`}
-                          >
-                            {event.count} {event.type === "appointment" ? "ag." : "proc."}
+                    <span className={`text-xs md:text-sm font-medium ${isSelectedDay(day) ? "text-primary-foreground" : isToday(day) ? "text-primary" : "text-foreground"}`}>
+                      {day}
+                    </span>
+                    {dayEventsSummary && (
+                      <div className="mt-1 space-y-0.5 text-left overflow-hidden flex-grow">
+                        {dayEventsSummary.appointments?.count > 0 && (
+                          <Badge variant="default" className={`text-[10px] px-1.5 py-0.5 leading-tight w-full justify-start truncate ${isSelectedDay(day) ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-info-muted text-info-foreground'}`}>
+                            {dayEventsSummary.appointments.count} Agend.
                           </Badge>
-                        </div>
-                      ))}
-                      {events.length > 2 && <div className="text-xs text-gray-400">+{events.length - 2} mais</div>}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center space-x-6 mt-6 pt-4 border-t border-gray-700">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-blue-600 rounded"></div>
-            <span className="text-sm text-gray-400">Agendamentos</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-600 rounded"></div>
-            <span className="text-sm text-gray-400">Procedimentos</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-gray-600 rounded border border-gray-500"></div>
-            <span className="text-sm text-gray-400">Hoje</span>
-          </div>
-        </div>
+                        )}
+                         {dayEventsSummary.procedures?.count > 0 && (
+                          <Badge variant="default" className={`text-[10px] px-1.5 py-0.5 leading-tight w-full justify-start truncate ${isSelectedDay(day) ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-success-muted text-success-foreground'}`}>
+                             {dayEventsSummary.procedures.count} Proc.
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+               {/* Empty cells for days after month ends to fill the grid */}
+              {Array.from({ length: (7 - (firstDayOfCurrentMonth + daysInCurrentMonth) % 7) % 7 }, (_, i) => (
+                <div key={`empty-end-${i}`} className="p-1 border border-transparent h-20 md:h-24" />
+              ))}
+            </div>
+        )}
       </CardContent>
     </Card>
-  )
+  );
 }

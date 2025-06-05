@@ -10,28 +10,22 @@ import { StyledTabs, StyledTabsList, StyledTabsTrigger, TabsContent } from "@/co
 import { ArrowLeft, Phone, Mail, Calendar, CheckCircle, DollarSign, TrendingUp } from "lucide-react"
 
 interface Patient {
-  id: string
-  name: string
-  email: string
-  phone: string
-  lastContact: string
-  funnelStage: string
-  appointments: Array<{
-    date: string
-    type: string
-    status: string
-    value?: number
-  }>
-  procedures: Array<{
-    date: string
-    name: string
-    status: string
-    value: number
-    cost: number
-    profit: number
-  }>
-  totalSpent: number
-  totalProfit: number
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  lastContact: string | null;
+  funnelStage: string;
+  status: string; // "active", "pending", "inactive"
+  avatar?: string; // Pode ser URL da imagem ou iniciais para o componente Avatar
+  nextAppointment?: string | null; // Data formatada ou ISO string
+  totalValue?: number; // Valor total gasto/gerado
+  procedures?: number; // Contagem de procedimentos
+  // Para o perfil completo, que será buscado por /api/patients/[id]
+  appointments: Array<{ date: string; time?: string; type: string; status: string; value?: number }>;
+  procedureHistory: Array<{ date: string; name: string; status: string; value: number; cost: number; profit: number }>;
+  totalSpent?: number;
+  totalProfit?: number;
 }
 
 interface PatientProfileProps {

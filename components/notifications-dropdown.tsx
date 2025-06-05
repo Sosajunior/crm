@@ -5,19 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bell, Check, X, AlertCircle, Info, CheckCircle } from "lucide-react"
 
 interface Notification {
-  id: number
-  type: "info" | "warning" | "success" | "error"
-  title: string
-  message: string
-  time: string
-  read: boolean
+  id: string; // API retorna string
+  type: "info" | "warning" | "success" | "error" | "reminder";
+  title: string;
+  message: string;
+  time: string; // Formatado como "X min atrás"
+  read: boolean;
+  createdAt?: string;
 }
 
 interface NotificationsDropdownProps {
   notifications: Notification[]
-  onMarkAsRead: (id: number) => void
+  onMarkAsRead: (id: string) => void
   onMarkAllAsRead: () => void
-  onDismiss: (id: number) => void
+  onDismiss: (id: string) => void
   isOpen: boolean
   onClose: () => void
 }

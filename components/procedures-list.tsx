@@ -6,225 +6,196 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Edit, Trash2, TrendingUp, TrendingDown } from "lucide-react"
+import { Search, Edit, Trash2, TrendingUp, TrendingDown, DollarSign } from "lucide-react"
 
-interface Procedure {
-  id: string
-  name: string
-  category: string
-  price: number
-  cost: number
-  profit: number
-  margin: number
-  quantity: number
-  totalRevenue: number
-  totalCost: number
-  totalProfit: number
+// Interface do catálogo vinda do FinancialDashboard ou types/index.ts
+export interface ProcedureCatalogItemCalculated {
+  id: string;
+  name: string;
+  category: string;
+  defaultPrice: number;
+  defaultCost: number;
+  profit: number; // Calculado
+  margin: number; // Calculado
+  // Os campos abaixo seriam para dados agregados de procedures_performed
+  // Se não disponíveis do catalog API, precisarão ser buscados separadamente ou mockados para esta lista
+  quantity?: number;
+  totalRevenue?: number;
+  totalCost?: number;
+  totalProfit?: number;
 }
 
 interface ProceduresListProps {
-  procedures: Procedure[]
+  procedures: ProcedureCatalogItemCalculated[]; // Recebe os itens do catálogo já processados
 }
 
-const categoryColors = {
-  Preventivo: "bg-green-100 text-green-800",
-  Restaurador: "bg-blue-100 text-blue-800",
-  Endodontia: "bg-purple-100 text-purple-800",
-  Cirurgia: "bg-red-100 text-red-800",
-  Estético: "bg-yellow-100 text-yellow-800",
-}
+const categoryColors: Record<string, string> = {
+  Preventivo: "bg-success-muted text-success-foreground border-success-foreground/30",
+  Restaurador: "bg-info-muted text-info-foreground border-info-foreground/30",
+  Endodontia: "bg-pending-muted text-pending-foreground border-pending-foreground/30", // Usando 'pending' como exemplo
+  Cirurgia: "bg-destructive/20 text-destructive border-destructive/30",
+  Estético: "bg-warning-muted text-warning-foreground border-warning-foreground/30",
+  Diagnóstico: "bg-muted text-muted-foreground border-border",
+  Protético: "bg-primary/10 text-primary border-primary/30",
+};
 
 export function ProceduresList({ procedures }: ProceduresListProps) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [sortBy, setSortBy] = useState<"name" | "profit" | "margin" | "quantity">("profit")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<keyof ProcedureCatalogItemCalculated | 'totalProfit' | 'quantity'>("totalProfit"); // Adicionado totalProfit e quantity
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const filteredAndSortedProcedures = procedures
     .filter(
       (procedure) =>
         procedure.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        procedure.category.toLowerCase().includes(searchTerm.toLowerCase()),
+        procedure.category.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
-      const aValue = a[sortBy]
-      const bValue = b[sortBy]
+      let aValue = a[sortBy as keyof ProcedureCatalogItemCalculated];
+      let bValue = b[sortBy as keyof ProcedureCatalogItemCalculated];
+
+      // Tratar casos onde o valor pode ser undefined ou não numérico para o sort
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      } else {
+        aValue = typeof aValue === 'number' ? aValue : -Infinity; // Default para ordenação
+        bValue = typeof bValue === 'number' ? bValue : -Infinity;
+      }
 
       if (sortOrder === "asc") {
-        return aValue > bValue ? 1 : -1
+        return aValue > bValue ? 1 : -1;
       } else {
-        return aValue < bValue ? 1 : -1
+        return aValue < bValue ? 1 : -1;
       }
-    })
+    });
 
-  const handleSort = (column: "name" | "profit" | "margin" | "quantity") => {
+  const handleSort = (column: keyof ProcedureCatalogItemCalculated | 'totalProfit' | 'quantity') => {
     if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
-      setSortBy(column)
-      setSortOrder("desc")
+      setSortBy(column);
+      setSortOrder("desc");
     }
-  }
-
-  const totalRevenue = procedures.reduce((sum, proc) => sum + proc.totalRevenue, 0)
-  const totalCost = procedures.reduce((sum, proc) => sum + proc.totalCost, 0)
-  const totalProfit = procedures.reduce((sum, proc) => sum + proc.totalProfit, 0)
-  const totalQuantity = procedures.reduce((sum, proc) => sum + proc.quantity, 0)
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header com busca */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Lista de Procedimentos</CardTitle>
-            <Button size="sm">
-              <Edit className="w-4 h-4 mr-2" />
-              Gerenciar Preços
-            </Button>
+    <div className="space-y-4 md:space-y-6">
+      <Card className="card-hover">
+        <CardHeader className="pb-3 pt-4 px-4 md:px-5">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+            <CardTitle className="text-base md:text-lg">Catálogo e Performance de Procedimentos</CardTitle>
+             {/* O botão de gerenciar preços pode abrir um modal específico */}
+            {/* <Button size="sm" variant="outline" className="h-9 border-input text-foreground hover:bg-accent">
+              <Edit className="w-3.5 h-3.5 mr-1.5" /> Gerenciar Preços
+            </Button> */}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <CardContent className="pt-0 px-4 md:px-5">
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Buscar procedimentos..."
+              placeholder="Buscar procedimentos ou categorias..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-9 text-sm"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">
-              R$ {totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-xs text-gray-600">Receita Total</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">
-              R$ {totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-xs text-gray-600">Custo Total</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">
-              R$ {totalProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-xs text-gray-600">Lucro Total</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-purple-600">{totalQuantity}</div>
-            <p className="text-xs text-gray-600">Total Realizados</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabela de procedimentos */}
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="cursor-pointer hover:bg-gray-50" onClick={() => handleSort("name")}>
-                  Procedimento {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Preço</TableHead>
-                <TableHead className="text-right">Custo</TableHead>
-                <TableHead className="text-right">Lucro Unit.</TableHead>
-                <TableHead className="text-right cursor-pointer hover:bg-gray-50" onClick={() => handleSort("margin")}>
-                  Margem {sortBy === "margin" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead
-                  className="text-right cursor-pointer hover:bg-gray-50"
-                  onClick={() => handleSort("quantity")}
-                >
-                  Qtd {sortBy === "quantity" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead className="text-right">Receita Total</TableHead>
-                <TableHead className="text-right cursor-pointer hover:bg-gray-50" onClick={() => handleSort("profit")}>
-                  Lucro Total {sortBy === "profit" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAndSortedProcedures.map((procedure) => (
-                <TableRow key={procedure.id} className="hover:bg-gray-50">
-                  <TableCell className="font-medium">{procedure.name}</TableCell>
-                  <TableCell>
-                    <Badge className={categoryColors[procedure.category] || "bg-gray-100 text-gray-800"}>
-                      {procedure.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    R$ {procedure.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    R$ {procedure.cost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right font-medium text-green-600">
-                    R$ {procedure.profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {procedure.margin >= 70 ? (
-                        <TrendingUp className="w-4 h-4 text-green-500" />
-                      ) : procedure.margin >= 50 ? (
-                        <TrendingUp className="w-4 h-4 text-yellow-500" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4 text-red-500" />
-                      )}
-                      <span
-                        className={
-                          procedure.margin >= 70
-                            ? "text-green-600"
-                            : procedure.margin >= 50
-                              ? "text-yellow-600"
-                              : "text-red-600"
-                        }
-                      >
-                        {procedure.margin.toFixed(1)}%
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">{procedure.quantity}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    R$ {procedure.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right font-medium text-blue-600">
-                    R$ {procedure.totalProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="outline" size="sm">
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
+      <Card className="card-hover">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="cursor-pointer hover:bg-accent/50" onClick={() => handleSort("name")}>
+                    Procedimento {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-accent/50" onClick={() => handleSort("defaultPrice")}>
+                    Preço Padrão {sortBy === "defaultPrice" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-accent/50" onClick={() => handleSort("defaultCost")}>
+                    Custo Padrão {sortBy === "defaultCost" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-accent/50" onClick={() => handleSort("profit")}>
+                    Lucro Unit. {sortBy === "profit" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-accent/50" onClick={() => handleSort("margin")}>
+                    Margem {sortBy === "margin" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                  {/* As colunas abaixo dependem de dados agregados de procedures_performed */}
+                  {/* Se não vierem na prop `procedures`, esconda ou mostre N/A */}
+                  {procedures.some(p => p.quantity !== undefined) && (
+                    <TableHead className="text-right cursor-pointer hover:bg-accent/50" onClick={() => handleSort("quantity")}>
+                      Qtd (Período) {sortBy === "quantity" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </TableHead>
+                  )}
+                   {procedures.some(p => p.totalProfit !== undefined) && (
+                    <TableHead className="text-right cursor-pointer hover:bg-accent/50" onClick={() => handleSort("totalProfit")}>
+                      Lucro Total (Per.) {sortBy === "totalProfit" && (sortOrder === "asc" ? "↑" : "↓")}
+                    </TableHead>
+                  )}
+                  {/* <TableHead>Ações</TableHead> */}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredAndSortedProcedures.map((procedure) => (
+                  <TableRow key={procedure.id} className="hover:bg-accent/30">
+                    <TableCell className="font-medium text-foreground">{procedure.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`${categoryColors[procedure.category] || "bg-muted text-muted-foreground border-border"} text-xs`}>
+                        {procedure.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      R$ {procedure.defaultPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right text-destructive/80">
+                      R$ {(procedure.defaultCost || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-success-foreground">
+                      R$ {procedure.profit?.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {procedure.margin === undefined ? 'N/A' : (
+                            <>
+                            {procedure.margin >= 70 ? <TrendingUp className="w-3.5 h-3.5 text-success-foreground" /> :
+                             procedure.margin >= 50 ? <TrendingUp className="w-3.5 h-3.5 text-warning-foreground" /> :
+                                                      <TrendingDown className="w-3.5 h-3.5 text-destructive" />}
+                            <span className={procedure.margin >= 70 ? "text-success-foreground" : procedure.margin >= 50 ? "text-warning-foreground" : "text-destructive"}>
+                                {procedure.margin.toFixed(1)}%
+                            </span>
+                            </>
+                        )}
+                      </div>
+                    </TableCell>
+                     {procedures.some(p => p.quantity !== undefined) && (
+                        <TableCell className="text-right">{procedure.quantity !== undefined ? procedure.quantity : 'N/A'}</TableCell>
+                     )}
+                     {procedures.some(p => p.totalProfit !== undefined) && (
+                        <TableCell className="text-right font-medium text-primary">
+                            {procedure.totalProfit !== undefined ? `R$ ${procedure.totalProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : 'N/A'}
+                        </TableCell>
+                     )}
+                    {/* <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </TableCell> */}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {filteredAndSortedProcedures.length === 0 && (
+                <div className="p-6 text-center text-muted-foreground">Nenhum procedimento encontrado.</div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
