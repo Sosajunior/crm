@@ -67,7 +67,7 @@ export interface PatientListItem {
   proceduresCount?: number; // CORRIGIDO: Renomeado de 'procedures' para evitar conflito
 }
 
-export interface CreatePatientPayload {
+export interface CreatePatientPayload { // <<<<< ADICIONE OU VERIFIQUE O 'export' AQUI
   name: string; email: string; phone: string; birthDate?: string | null; address?: string;
   city?: string; zipCode?: string; emergencyContact?: string; emergencyPhone?: string;
   medicalHistory?: string; allergies?: string; medications?: string;

@@ -16,7 +16,7 @@ interface ProcedureRecord {
   patientName: string;
   procedureName: string;
   category: string;
-  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted"; // CORRIGIDO
+  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted";
   value: number; // price_charged
   cost: number; // cost_incurred
   profit: number;
@@ -49,7 +49,8 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
         category: filterCategory,
         status: filterStatus,
       });
-      const response = await fetch(`/api/procedures/performed?${queryParams.toString()}`); // Este endpoint precisará ser criado para listar
+      // Este endpoint precisará ser criado para listar os procedimentos
+      const response = await fetch(`/api/procedures/performed?${queryParams.toString()}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Falha ao buscar histórico de procedimentos');
@@ -138,12 +139,12 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
               <SelectItem value="pending">Pendente</SelectItem>
               <SelectItem value="cancelled">Cancelado</SelectItem>
               <SelectItem value="in_progress">Em Progresso</SelectItem>
-               <SelectItem value="aborted">Abortado</SelectItem>
+              <SelectItem value="aborted">Abortado</SelectItem>
             </SelectContent>
           </Select>
-           <Button variant="ghost" size="icon" onClick={() => {setSearchTerm(''); setFilterCategory('all'); setFilterStatus('all');}} className="h-9 w-9 text-muted-foreground hover:text-foreground" title="Limpar filtros">
-            <FilterX className="w-4 h-4" />
-          </Button>
+            <Button variant="ghost" size="icon" onClick={() => {setSearchTerm(''); setFilterCategory('all'); setFilterStatus('all');}} className="h-9 w-9 text-muted-foreground hover:text-foreground" title="Limpar filtros">
+             <FilterX className="w-4 h-4" />
+            </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -152,7 +153,7 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
         ) : error ? (
           <div className="text-center py-10 text-destructive">{error}</div>
         ) : records.length === 0 ? (
-           <div className="text-center py-10 text-muted-foreground">Nenhum registro encontrado para os filtros aplicados.</div>
+            <div className="text-center py-10 text-muted-foreground">Nenhum registro encontrado para os filtros aplicados.</div>
         ) : (
           <div className="overflow-x-auto max-h-[400px]">
             <Table>

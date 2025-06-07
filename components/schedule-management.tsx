@@ -1,193 +1,184 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, ChevronLeft, ChevronRight, RefreshCw, Download, Settings } from "lucide-react"
+import { Plus, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { ScheduleMetrics } from "@/components/schedule-metrics"
-import { AppointmentsList } from "@/components/appointments-list"
-import { ProceduresScheduleList } from "@/components/procedures-schedule-list" // Nome corrigido
+import { AppointmentItem, AppointmentsList } from "@/components/appointments-list"
+import { ProcedureScheduleItem, ProceduresScheduleList } from "@/components/procedures-schedule-list"
 import { CalendarView } from "@/components/calendar-view"
-import { NewPatientModal } from "@/components/new-patient-modal" // Para o botão de Novo Agendamento
+import { NewAppointmentModal } from "@/components/new-appointment-modal"; // CORREÇÃO: Importa o novo modal
+import { useToast } from "@/hooks/use-toast"
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format as formatDateFns } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ClinicSettings } from "./settings-modal"
 
-// Interfaces (podem vir de types/index.ts)
-interface ScheduleMetricData { // Específico para ScheduleMetrics
+// --- Interfaces ---
+interface ScheduleMetricData {
   totalAppointments: number;
   confirmedAppointments: number;
-  pendingAppointments: number;
-  cancelledAppointments: number;
-  completedProcedures: number;
-  scheduledProcedures: number;
+  noShowAppointments: number;
   occupancyRate: number;
   noShowRate: number;
 }
-export interface AppointmentItem { // Para AppointmentsList
-  id: string;
-  time: string;
-  dateFull: string;
-  patient: string;
-  phone: string;
-  type: string;
-  status: string;
-  duration: number;
-  notes?: string;
+interface CreateAppointmentAPIPayload {
+    patientId: string | number;
+    appointmentDatetime: string;
+    durationMinutes?: number;
+    appointmentType: string;
+    notes?: string;
+    status?: string;
+    valueCharged?: number;
+    userId?: string | number;
 }
-export interface ProcedureScheduleItem { // Para ProceduresScheduleList
-  id: string;
-  time: string;
-  dateFull: string;
-  patient: string;
-  procedure: string;
-  status: string;
-  duration: number;
-  value?: number;
-  profit?: number;
-  notes?: string;
-}
-// Para NewPatientModal
-interface PatientFormData { name: string; email: string; phone: string; /* ... outros campos */ }
+// --- Fim das Interfaces ---
 
+const calculateOccupancy = (
+    appointments: AppointmentItem[],
+    workingHours: any,
+    viewMode: "day" | "week" | "month",
+    selectedDate: Date
+): number => {
+    if (!workingHours || appointments.length === 0) return 0;
+    const getDayName = (date: Date): string => formatDateFns(date, 'eeee', { locale: ptBR }).toLowerCase();
+    let totalMinutesAvailable = 0;
+    const totalMinutesOccupied = appointments
+        .filter(appt => appt.status !== 'cancelled' && appt.status !== 'no_show')
+        .reduce((sum, appt) => sum + (appt.duration || 0), 0);
+    let daysToConsider: Date[] = [];
+    if(viewMode === 'day'){ daysToConsider = [selectedDate]; }
+    else if (viewMode === 'week') {
+        const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+        daysToConsider = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    } else {
+        const monthStart = startOfMonth(selectedDate);
+        const monthEnd = endOfMonth(selectedDate);
+        daysToConsider = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    }
+    daysToConsider.forEach(day => {
+        const dayName = getDayName(day);
+        const daySchedule = workingHours[dayName];
+        if (daySchedule && daySchedule.enabled) {
+            const [startHour, startMinute] = daySchedule.start.split(':').map(Number);
+            const [endHour, endMinute] = daySchedule.end.split(':').map(Number);
+            const minutes = (endHour - startHour) * 60 + (endMinute - startMinute);
+            totalMinutesAvailable += minutes > 0 ? minutes : 0;
+        }
+    });
+    if (totalMinutesAvailable === 0) return 0;
+    const occupancy = (totalMinutesOccupied / totalMinutesAvailable) * 100;
+    return Math.round(occupancy > 100 ? 100 : occupancy);
+};
 
 interface ScheduleManagementProps {
-  selectedPeriod: string; // "today", "week", "month" - usado para definir o viewMode inicial
+  selectedPeriod: string;
 }
 
 export function ScheduleManagement({ selectedPeriod: initialPeriod }: ScheduleManagementProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">(initialPeriod === "today" ? "day" : initialPeriod as "week" | "month");
   const [activeTab, setActiveTab] = useState("overview");
-
   const [scheduleMetrics, setScheduleMetrics] = useState<ScheduleMetricData | null>(null);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [procedures, setProcedures] = useState<ProcedureScheduleItem[]>([]);
-
-  const [isLoading, setIsLoading] = useState(false);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [showNewAppointmentModal, setShowNewAppointmentModal] = useState(false);
-  // const [showNewProcedureModal, setShowNewProcedureModal] = useState(false); // Se houver um modal para isso
+  const { toast } = useToast();
 
   const fetchDataForSchedule = useCallback(async () => {
+    if (!clinicSettings) return; // Aguarda as configurações serem carregadas.
     setIsLoading(true);
     const dateParam = selectedDate.toISOString().split('T')[0];
+    const apiParams = new URLSearchParams({ date: dateParam, viewMode });
     try {
-      // Fetch Metrics for Schedule
-      const metricsRes = await fetch(`/api/metrics?period=${viewMode}&date=${dateParam}`); // Supondo que API de métricas aceita uma data específica
-      if (!metricsRes.ok) throw new Error('Failed to fetch schedule metrics');
-      const metricsData = await metricsRes.json();
-      // A API de /api/metrics retorna um objeto { metrics: {...} }, precisamos adaptar
-      // Para ScheduleMetrics, precisamos de uma estrutura diferente, então adaptaremos ou criaremos um endpoint específico
-      // Por agora, vamos simular uma adaptação:
-      setScheduleMetrics({
-        totalAppointments: metricsData.metrics?.agendamentosRealizados || 0,
-        confirmedAppointments: metricsData.metrics?.confirmacoesAgendamento || 0,
-        pendingAppointments: (metricsData.metrics?.agendamentosRealizados || 0) - (metricsData.metrics?.confirmacoesAgendamento || 0) - (metricsData.metrics?.comparecimentos || 0) - (metricsData.metrics?.cancelledAppointments || 0), // Estimativa
-        cancelledAppointments: metricsData.metrics?.cancelledAppointments || 0, // Supondo que a API de métricas tenha este campo
-        completedProcedures: metricsData.metrics?.procedimentosRealizados || 0,
-        scheduledProcedures: (metricsData.metrics?.procedimentosOferecidos || 0) - (metricsData.metrics?.procedimentosRealizados || 0), // Estimativa
-        occupancyRate: metricsData.metrics?.occupancyRate || 75, // Supondo que a API de métricas tenha este campo
-        noShowRate: metricsData.metrics?.noShowRate || 10, // Supondo que a API de métricas tenha este campo
-      });
-
-
-      // Fetch Appointments for the selected date/viewMode
-      const appointmentsRes = await fetch(`/api/appointments?date=${dateParam}&viewMode=${viewMode}`);
-      if (!appointmentsRes.ok) throw new Error('Failed to fetch appointments');
+      const [appointmentsRes, proceduresRes] = await Promise.all([
+          fetch(`/api/appointments?${apiParams.toString()}`),
+          fetch(`/api/procedures/performed?${apiParams.toString()}`)
+      ]);
+      if (!appointmentsRes.ok) throw new Error('Falha ao buscar agendamentos');
       const appointmentsData = await appointmentsRes.json();
-      setAppointments(appointmentsData);
-
-      // Fetch Procedures for the selected date/viewMode
-      const proceduresRes = await fetch(`/api/procedures/performed?date=${dateParam}&viewMode=${viewMode}`); // Assumindo que a API aceita viewMode
-      if (!proceduresRes.ok) throw new Error('Failed to fetch procedures');
+      const safeAppointments = appointmentsData || [];
+      setAppointments(safeAppointments);
+      if (!proceduresRes.ok) throw new Error('Falha ao buscar procedimentos');
       const proceduresData = await proceduresRes.json();
-      // Adaptar a resposta da API de procedures/performed para ProcedureScheduleItem
-       setProcedures(proceduresData.map((p: { 
-         id: string;
-         date: string;
-         patientName: string;
-         procedureName: string;
-         status: string;
-         defaultDurationMinutes?: number;
-         value?: number;
-         profit?: number;
-         notes?: string;
-       }) => ({
-        id: p.id,
-        time: new Date(p.date).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}), // Supondo que p.date tem hora
-        dateFull: p.date,
-        patient: p.patientName,
-        procedure: p.procedureName,
-        status: p.status,
-        duration: p.defaultDurationMinutes || 60, // Precisaria buscar do catalog ou ter no performed
-        value: p.value,
-        profit: p.profit,
-        notes: p.notes,
-      })));
+      setProcedures(proceduresData?.procedures || []);
 
-
+      const potentialAppointments = safeAppointments.filter((a: AppointmentItem) => a.status !== 'cancelled');
+      const noShowAppointments = safeAppointments.filter((a: AppointmentItem) => a.status === 'no_show').length;
+      setScheduleMetrics({
+        totalAppointments: potentialAppointments.length,
+        confirmedAppointments: potentialAppointments.filter((a: AppointmentItem) => a.status === 'confirmed').length,
+        noShowAppointments,
+        occupancyRate: calculateOccupancy(potentialAppointments, clinicSettings.workingHours, viewMode, selectedDate),
+        noShowRate: potentialAppointments.length > 0 ? Math.round((noShowAppointments / potentialAppointments.length) * 100) : 0,
+      });
     } catch (error) {
-      console.error("Error fetching schedule data:", error);
-      setScheduleMetrics(null);
-      setAppointments([]);
-      setProcedures([]);
+      toast({ title: "Erro ao Carregar Dados da Agenda", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, viewMode]);
-
+  }, [selectedDate, viewMode, toast, clinicSettings]);
+  
   useEffect(() => {
-    fetchDataForSchedule();
-  }, [fetchDataForSchedule]);
+    if (!clinicSettings) {
+        (async () => {
+            try {
+                const settingsRes = await fetch('/api/settings');
+                if (settingsRes.ok) setClinicSettings(await settingsRes.json());
+                else throw new Error('Falha ao buscar configurações da clínica.');
+            } catch (error) {
+                toast({ title: "Erro Crítico", description: (error as Error).message, variant: "destructive" });
+            }
+        })();
+    } else {
+        fetchDataForSchedule();
+    }
+  }, [selectedDate, viewMode, clinicSettings, fetchDataForSchedule, toast]);
 
-
-  const handleDateChangeFromCalendar = (date: Date) => {
-    setSelectedDate(date);
-    setViewMode("day"); // Ao selecionar um dia específico no calendário, mudar para visualização diária
-  };
-
-
-  const handleSaveNewAppointment = async (appointmentData: any) => {
-    // Lógica para chamar API POST /api/appointments
-    console.log("Saving new appointment:", appointmentData);
+  const handleSaveNewAppointment = async (appointmentData: CreateAppointmentAPIPayload) => {
     try {
         const response = await fetch('/api/appointments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(appointmentData)
         });
-        if (!response.ok) throw new Error("Failed to create appointment");
-        fetchDataForSchedule(); // Re-fetch data
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || "Falha ao criar agendamento");
+        }
+        await fetchDataForSchedule();
         setShowNewAppointmentModal(false);
-        alert("Agendamento criado com sucesso!");
+        toast({ title: "Sucesso!", description: "Agendamento criado com sucesso." });
     } catch (error) {
-        console.error("Error creating appointment:", error);
-        alert("Erro ao criar agendamento.");
+        toast({ title: "Erro ao criar agendamento", description: (error as Error).message, variant: "destructive" });
     }
   };
 
-  const handleExportData = async () => {/* ... */};
-  const handleRefreshData = () => fetchDataForSchedule();
+  const handleDateChangeFromCalendar = (date: Date) => { setSelectedDate(date); setViewMode("day"); };
   const handleGoToToday = () => setSelectedDate(new Date());
-
-  const formatDate = (date: Date, mode: "day" | "week" | "month") => {
-    if (mode === "day") return date.toLocaleDateString("pt-BR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const formatDate = (date: Date, mode: "day" | "week" | "month"): string => {
+    if (!date) return "";
+    if (mode === "day") return formatDateFns(date, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     if (mode === "week") {
-        const startOfWeek = new Date(date);
-        startOfWeek.setDate(date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1)); // Seg
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6); // Dom
-        return `Semana de ${startOfWeek.toLocaleDateString("pt-BR", {day:'numeric', month:'short'})} à ${endOfWeek.toLocaleDateString("pt-BR", {day:'numeric', month:'short', year: 'numeric'})}`;
+      const start = startOfWeek(date, { weekStartsOn: 1 });
+      const end = endOfWeek(date, { weekStartsOn: 1 });
+      return `Semana de ${formatDateFns(start, 'd/MM')} a ${formatDateFns(end, 'd/MM/yyyy')}`;
     }
-    return date.toLocaleDateString("pt-BR", { year: "numeric", month: "long" });
+    return formatDateFns(date, "MMMM 'de' yyyy", { locale: ptBR });
   };
-
   const navigateDate = (direction: "prev" | "next") => {
     const newDate = new Date(selectedDate);
-    if (viewMode === "day") newDate.setDate(newDate.getDate() + (direction === "next" ? 1 : -1));
-    else if (viewMode === "week") newDate.setDate(newDate.getDate() + (direction === "next" ? 7 : -7));
-    else newDate.setMonth(newDate.getMonth() + (direction === "next" ? 1 : -1));
+    const amount = direction === "next" ? 1 : -1;
+    if (viewMode === "day") newDate.setDate(newDate.getDate() + amount);
+    else if (viewMode === "week") newDate.setDate(newDate.getDate() + (amount * 7));
+    else newDate.setMonth(newDate.getMonth() + amount);
     setSelectedDate(newDate);
   };
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -197,13 +188,10 @@ export function ScheduleManagement({ selectedPeriod: initialPeriod }: ScheduleMa
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={handleGoToToday} disabled={isLoading}>Hoje</Button>
-          <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={fetchDataForSchedule} disabled={isLoading}>
             <RefreshCw className={`w-3 h-3 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             {isLoading ? "Atualizando..." : "Atualizar"}
           </Button>
-          {/* <Button variant="outline" size="sm" onClick={handleExportData} disabled={isLoading}>
-            <Download className="w-3 h-3 mr-2" /> Exportar
-          </Button> */}
           <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowNewAppointmentModal(true)} disabled={isLoading}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Agendamento
@@ -215,80 +203,59 @@ export function ScheduleManagement({ selectedPeriod: initialPeriod }: ScheduleMa
         <CardContent className="p-3 md:p-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center">
-              <Button variant="outline" size="icon" onClick={() => navigateDate("prev")} className="h-9 w-9 hover:bg-accent mr-2 md:mr-4">
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <div className="text-center min-w-[200px] md:min-w-[280px]">
-                <h3 className="text-base md:text-lg font-semibold text-foreground capitalize truncate">
-                  {formatDate(selectedDate, viewMode)}
-                </h3>
-              </div>
-              <Button variant="outline" size="icon" onClick={() => navigateDate("next")} className="h-9 w-9 hover:bg-accent ml-2 md:ml-4">
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+              <Button variant="outline" size="icon" onClick={() => navigateDate("prev")} className="h-9 w-9 hover:bg-accent mr-2 md:mr-4"><ChevronLeft className="w-4 h-4" /></Button>
+              <div className="text-center min-w-[200px] md:min-w-[280px]"><h3 className="text-base md:text-lg font-semibold text-foreground capitalize truncate">{formatDate(selectedDate, viewMode)}</h3></div>
+              <Button variant="outline" size="icon" onClick={() => navigateDate("next")} className="h-9 w-9 hover:bg-accent ml-2 md:ml-4"><ChevronRight className="w-4 h-4" /></Button>
             </div>
-
             <div className="flex bg-muted rounded-md p-1">
               {(["day", "week", "month"] as const).map((mode) => (
-                <Button
-                  key={mode}
-                  variant={viewMode === mode ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode(mode)}
-                  className={`text-xs px-3 py-1 h-8 ${viewMode === mode ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                >
-                  {mode === "day" && "Dia"}
-                  {mode === "week" && "Semana"}
-                  {mode === "month" && "Mês"}
-                </Button>
+                <Button key={mode} variant={viewMode === mode ? "default" : "ghost"} size="sm" onClick={() => setViewMode(mode)} className={`text-xs px-3 py-1 h-8 ${viewMode === mode ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>{mode === "day" ? "Dia" : mode === "week" ? "Semana" : "Mês"}</Button>
               ))}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {isLoading && <div className="text-center py-8">Carregando dados da agenda...</div>}
-      {!isLoading && scheduleMetrics && <ScheduleMetrics metrics={scheduleMetrics} viewMode={viewMode} />}
-
+      {(isLoading && !scheduleMetrics) ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 animate-pulse">
+            {[...Array(4)].map((_, i) => (<Card key={i}><CardContent className="p-4 md:p-6"><div className="h-6 bg-muted rounded w-3/4 mb-2"></div><div className="h-8 bg-muted rounded w-1/2 mb-3"></div><div className="h-4 bg-muted rounded w-1/4"></div></CardContent></Card>))}
+        </div>) : 
+        scheduleMetrics ? <ScheduleMetrics metrics={scheduleMetrics} viewMode={viewMode} /> : 
+        <div className="text-center py-8 text-muted-foreground">Não foi possível carregar as métricas.</div>
+      }
+      
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Visão Geral</TabsTrigger>
-          <TabsTrigger value="appointments" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Agendamentos</TabsTrigger>
-          <TabsTrigger value="procedures" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Procedimentos</TabsTrigger>
-          <TabsTrigger value="calendar" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Calendário</TabsTrigger>
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="appointments">Agendamentos</TabsTrigger>
+          <TabsTrigger value="procedures">Procedimentos</TabsTrigger>
+          <TabsTrigger value="calendar">Calendário</TabsTrigger>
         </TabsList>
-
         <TabsContent value="overview" className="space-y-6">
-          {!isLoading && (
+          {isLoading ? <div className="text-center py-8">Carregando...</div> : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AppointmentsList appointments={appointments} selectedDate={selectedDate} viewMode={viewMode} onUpdate={fetchDataForSchedule} />
-              <ProceduresScheduleList procedures={procedures} selectedDate={selectedDate} viewMode={viewMode} onUpdate={fetchDataForSchedule} />
+              <AppointmentsList appointments={appointments} selectedDate={selectedDate} viewMode={viewMode} onUpdate={fetchDataForSchedule} onViewAllClick={() => setActiveTab('appointments')} />
+              <ProceduresScheduleList procedures={procedures} selectedDate={selectedDate} viewMode={viewMode} onUpdate={fetchDataForSchedule} onViewAllClick={() => setActiveTab('procedures')} />
             </div>
           )}
         </TabsContent>
         <TabsContent value="appointments">
-          {!isLoading && <AppointmentsList appointments={appointments} selectedDate={selectedDate} viewMode={viewMode} fullView onUpdate={fetchDataForSchedule}/>}
+          {isLoading ? <div className="text-center py-8">Carregando...</div> : <AppointmentsList appointments={appointments} selectedDate={selectedDate} viewMode={viewMode} fullView onUpdate={fetchDataForSchedule}/>}
         </TabsContent>
         <TabsContent value="procedures">
-          {!isLoading && <ProceduresScheduleList procedures={procedures} selectedDate={selectedDate} viewMode={viewMode} fullView onUpdate={fetchDataForSchedule}/>}
+          {isLoading ? <div className="text-center py-8">Carregando...</div> : <ProceduresScheduleList procedures={procedures} selectedDate={selectedDate} viewMode={viewMode} fullView onUpdate={fetchDataForSchedule}/>}
         </TabsContent>
         <TabsContent value="calendar">
             <CalendarView selectedDate={selectedDate} onDateSelect={handleDateChangeFromCalendar} />
         </TabsContent>
       </Tabs>
-
+      
       {showNewAppointmentModal && (
-        <NewPatientModal // Reutilizando NewPatientModal para simplicidade ou criar um NewAppointmentModal
-          isOpen={showNewAppointmentModal}
-          onClose={() => setShowNewAppointmentModal(false)}
-          onSave={async (patientData) => {
-            // Adaptar para lógica de salvar agendamento
-            // Aqui você pode ter um formulário mais específico para agendamento
-            // Por agora, apenas loga e fecha
-            console.log("Tentativa de novo agendamento com dados de paciente:", patientData);
-            // handleSaveNewAppointment({patientId: ..., ...outrosDadosDoAgendamento});
-            setShowNewAppointmentModal(false);
-          }}
+        <NewAppointmentModal
+            isOpen={showNewAppointmentModal}
+            onClose={() => setShowNewAppointmentModal(false)}
+            onSave={handleSaveNewAppointment}
+            initialDate={selectedDate}
         />
       )}
     </div>

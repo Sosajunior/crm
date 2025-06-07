@@ -29,12 +29,12 @@ export function ActionModal({ isOpen, onClose, title, children, footer, size = "
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} animate-scale max-h-[90vh] overflow-hidden flex flex-col`}
+        className={`bg-background rounded-lg shadow-xl w-full ${sizeClasses[size]} animate-scale max-h-[90vh] overflow-hidden flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-200 flex-shrink-0">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
+          <h3 className="text-lg font-semibold text-white">{title}</h3>
           <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-slate-100">
             <X className="h-4 w-4" />
             <span className="sr-only">Fechar</span>
@@ -47,7 +47,7 @@ export function ActionModal({ isOpen, onClose, title, children, footer, size = "
         </div>
 
         {/* Footer */}
-        {footer && <div className="flex justify-end p-6 border-t border-slate-200 gap-2 flex-shrink-0">{footer}</div>}
+        {footer && <div className="flex justify-end p-6 border-t border-border gap-2 flex-shrink-0">{footer}</div>}
       </div>
     </div>
   )

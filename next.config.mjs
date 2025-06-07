@@ -1,3 +1,4 @@
+// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -8,6 +9,10 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+  },
+  // Adicione esta seção para resolver o aviso de cross-origin
+  devIndicators: {
+    allowedDevOrigins: ["https://dev-crm.xnwt97.easypanel.host"],
   },
 }
 

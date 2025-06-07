@@ -88,10 +88,6 @@ export function PatientManagement({ patients, onSelectPatient, selectedPeriod }:
             {patients.length} pacientes encontrados
           </p>
         </div>
-        <Button className="btn-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Paciente
-        </Button>
       </div>
 
       <Card className="card-hover">
@@ -156,6 +152,10 @@ export function PatientManagement({ patients, onSelectPatient, selectedPeriod }:
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Mail className="h-4 w-4 mr-2 flex-shrink-0" />
                   <span className="truncate">{patient.email}</span>
+                </div>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">{patient.phone}</span>
                 </div>
                 {patient.nextAppointment && (
                   <div className="flex items-center text-sm text-muted-foreground">
