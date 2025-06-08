@@ -17,6 +17,9 @@ import { PatientProfile } from "@/components/patient-profile";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { useToast } from "@/hooks/use-toast";
+import apiClient from "@/lib/apiClient";
+import router from "next/router";
+import ClickSpark from "./ClickSpark";
 
 // --- INÍCIO DAS INTERFACES (Fonte da Verdade) ---
 export interface MetricValues {
@@ -140,14 +143,19 @@ function ModernDentalCRM() {
   const fetchMetrics = useCallback(async (period: string) => {
     setLoading("metrics", true);
     try {
-      const response = await fetch(`/api/metrics?period=${period}`);
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Metrics API error! status: ${response.status}`);}
-      const data = await response.json();
+      // Substituir fetch por apiClient
+      const data = await apiClient<{ metrics: MetricValues }>(`/metrics?period=${period}`);
       setCurrentMetrics(data.metrics);
     } catch (error) {
       console.error("Error fetching metrics:", error);
       setCurrentMetrics(null);
       toast({ title: "Erro ao buscar métricas", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+      // Adicionar tratamento para erro de autenticação, se necessário
+      if (error instanceof Error && (error.message.includes('Não autorizado') || error.message.includes('Token não fornecido'))) {
+        // Ex: redirecionar para login
+        localStorage.removeItem('jwtToken');
+        router.push('/login');
+      }
     } finally {
       setLoading("metrics", false);
     }
@@ -326,118 +334,126 @@ function ModernDentalCRM() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Sidebar
-        activeView={activeView}
-        onViewChange={(view) => {
-          setSelectedPatientDetail(null);
-          setActiveView(view);
-        }}
-        onSettingsClick={() => {
-            if (!currentSettings && !isLoading.settings) fetchSettings();
-            setShowSettingsModal(true);
-        }}
-        clinicName={currentSettings?.clinicName}
-      />
+        <ClickSpark
+          sparkColor='#fff'
+          sparkSize={10}
+          sparkRadius={15}
+          sparkCount={8}
+          duration={400}
+        >
+        <Sidebar
+          activeView={activeView}
+          onViewChange={(view) => {
+            setSelectedPatientDetail(null);
+            setActiveView(view);
+          }}
+          onSettingsClick={() => {
+              if (!currentSettings && !isLoading.settings) fetchSettings();
+              setShowSettingsModal(true);
+          }}
+          clinicName={currentSettings?.clinicName}
+        />
 
-      <div className="md:ml-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 md:px-6">
-          <div className="flex flex-1 items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">
-                {activeView === "dashboard" && "Dashboard Principal"}
-                {activeView === "patients" && (selectedPatientDetail ? selectedPatientDetail.name : "Pacientes")}
-                {activeView === "schedule" && "Agenda e Métricas"}
-                {activeView === "funnel" && "Análise de Funil"}
-                {activeView === "financial" && "Visão Financeira"}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-2 md:gap-4">
-              <div className="hidden md:flex bg-muted rounded-md p-1">
-                {["today", "week", "month"].map((p) => (
-                  <Button
-                    key={p}
-                    variant={selectedPeriod === p ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setSelectedPeriod(p)}
-                    className={`text-xs px-3 py-1 h-8 ${selectedPeriod === p ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                  >
-                    {p === "today" && "Hoje"}
-                    {p === "week" && "Semana"}
-                    {p === "month" && "Mês"}
-                  </Button>
-                ))}
+        <div className="md:ml-64">
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 md:px-6">
+            <div className="flex flex-1 items-center justify-between">
+              <div>
+                <h1 className="text-lg font-semibold text-foreground">
+                  {activeView === "dashboard" && "Dashboard Principal"}
+                  {activeView === "patients" && (selectedPatientDetail ? selectedPatientDetail.name : "Pacientes")}
+                  {activeView === "schedule" && "Agenda e Métricas"}
+                  {activeView === "funnel" && "Análise de Funil"}
+                  {activeView === "financial" && "Visão Financeira"}
+                </h1>
               </div>
 
-              <Button size="sm" className="hidden md:flex bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowNewPatientModal(true)}>
-                <Plus className="h-4 w-4 mr-1 md:mr-2" />
-                <span className="hidden sm:inline">Novo Paciente</span>
-              </Button>
+              <div className="flex items-center gap-2 md:gap-4">
+                <div className="hidden md:flex bg-muted rounded-md p-1">
+                  {["today", "week", "month"].map((p) => (
+                    <Button
+                      key={p}
+                      variant={selectedPeriod === p ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setSelectedPeriod(p)}
+                      className={`text-xs px-3 py-1 h-8 ${selectedPeriod === p ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                    >
+                      {p === "today" && "Hoje"}
+                      {p === "week" && "Semana"}
+                      {p === "month" && "Mês"}
+                    </Button>
+                  ))}
+                </div>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell className="h-4 w-4" />
-                {unreadNotificationsCount > 0 && (
-                   <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                    {unreadNotificationsCount}
-                  </span>
-                )}
-              </Button>
+                <Button size="sm" className="hidden md:flex bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowNewPatientModal(true)}>
+                  <Plus className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Novo Paciente</span>
+                </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                    if (!currentSettings && !isLoading.settings) fetchSettings();
-                    setShowSettingsModal(true);
-                }}
-                className="hidden md:flex h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                      if (!currentSettings && !isLoading.settings) fetchSettings();
+                      setShowSettingsModal(true);
+                  }}
+                  className="hidden md:flex h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className="p-4 md:p-6">
-          {renderContent()}
-        </main>
-      </div>
+          <main className="p-4 md:p-6">
+            {renderContent()}
+          </main>
+        </div>
 
-      {showNotifications && (
-        <NotificationsDropdown
-          notifications={notifications}
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          onDismiss={handleDismissNotification}
-          isOpen={showNotifications}
-          onClose={() => setShowNotifications(false)}
-        />
-      )}
-
-      <NewPatientModal
-        isOpen={showNewPatientModal}
-        onClose={() => setShowNewPatientModal(false)}
-        onSave={handleSaveNewPatient}
-      />
-
-      {showSettingsModal && currentSettings !== null && (
-        <SettingsModal
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-          onSave={handleSaveSettings}
-          initialSettings={currentSettings}
-        />
-      )}
-       {showSettingsModal && isLoading.settings && (
-          <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[60]">
-            <p>Carregando configurações...</p>
-          </div>
+        {showNotifications && (
+          <NotificationsDropdown
+            notifications={notifications}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onDismiss={handleDismissNotification}
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+          />
         )}
+
+        <NewPatientModal
+          isOpen={showNewPatientModal}
+          onClose={() => setShowNewPatientModal(false)}
+          onSave={handleSaveNewPatient}
+        />
+
+        {showSettingsModal && currentSettings !== null && (
+          <SettingsModal
+            isOpen={showSettingsModal}
+            onClose={() => setShowSettingsModal(false)}
+            onSave={handleSaveSettings}
+            initialSettings={currentSettings}
+          />
+        )}
+        {showSettingsModal && isLoading.settings && (
+            <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[60]">
+              <p>Carregando configurações...</p>
+            </div>
+          )}
+      </ClickSpark>
     </div>
   );
 }

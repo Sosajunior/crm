@@ -72,7 +72,7 @@ export function Sidebar({ activeView, onViewChange, onSettingsClick, clinicName 
                 <span className="text-primary font-medium">DC</span> {/**TROCAR POR ICONE */}
               </div>
               {/* --- MUDANÇA 3: Usar a variável no lugar do texto estático --- */}
-              <span className="font-semibold">{clinicName || "Dental CRM"}</span>
+              <span className="font-semibold">{clinicName || "Gennius Solutions"}</span>
             </div>
           )}
           <Button
