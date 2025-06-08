@@ -9,7 +9,7 @@ interface ProcedureRecord {
   dateFull: string;
   patient: string;
   procedure: string;
-  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted" | "scheduled";
+  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted" | "agendado";
   duration: number;
   cost?:number;
   value?: number;

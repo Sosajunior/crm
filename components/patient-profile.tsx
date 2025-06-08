@@ -39,7 +39,7 @@ export function PatientProfile({ patient, onBack }: PatientProfileProps) {
     const statusMap: Record<string, "success" | "warning" | "info" | "default" | "canceled"> = {
         realizado: "success", concluído: "success", completed: "success",
         confirmado: "success", confirmed: "success",
-        pendente: "warning", pending: "warning", scheduled: "warning",
+        pendente: "warning", pending: "warning", agendado: "warning",
         cancelado: "canceled", cancelled: "canceled"
     };
     return statusMap[status] || "default";

@@ -47,7 +47,7 @@ const getEventDetails = (activity: ActivityLogItem): { icon: React.ElementType, 
         case "appointment":
             let badgeAppt: "success" | "info" | "warning" | "default" = "info";
             if (activity.status === "confirmado" || activity.status === "completed" || activity.status === "concluído") badgeAppt = "success";
-            else if (activity.status === "pending" || activity.status === "scheduled") badgeAppt = "warning";
+            else if (activity.status === "pending" || activity.status === "agendado") badgeAppt = "warning";
             else if (activity.status === "cancelled") badgeAppt = "default";
             return { icon: CalendarIcon, badgeText: activity.status ? (activity.status.charAt(0).toUpperCase() + activity.status.slice(1)) : "Agendamento", badgeVariant: badgeAppt };
         case "confirmacao_agendamento":

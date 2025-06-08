@@ -10,17 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Download, TrendingUp, DollarSign, FilterX, TrendingDown } from "lucide-react"
 
+// --- CORREÇÃO 1: Interface atualizada para corresponder à API ---
 interface ProcedureRecord {
   id: string;
-  date: string; // YYYY-MM-DD
-  patientName: string;
-  procedureName: string;
+  dateFull: string;       // Alterado de 'date' para 'dateFull'
+  patient: string;        // Alterado de 'patientName' para 'patient'
+  procedure: string;      // Alterado de 'procedureName' para 'procedure'
   category: string;
-  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted";
-  value: number; // price_charged
-  cost: number; // cost_incurred
+  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted" | "agendado";
+  value: number;
+  cost: number;
   profit: number;
-  margin: number; // percentage
+  margin: number;
   paymentMethod?: string;
   paymentStatus?: "paid" | "pending" | "overdue" | "waived";
   notes?: string;
@@ -49,13 +50,14 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
         category: filterCategory,
         status: filterStatus,
       });
-      // Este endpoint precisará ser criado para listar os procedimentos
+      // A API chamada aqui agora está correta.
       const response = await fetch(`/api/procedures/performed?${queryParams.toString()}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Falha ao buscar histórico de procedimentos');
       }
-      const data = await response.json(); // Espera-se { procedures: ProcedureRecord[] }
+      const data = await response.json();
+      // O frontend espera `data.procedures` conforme a API que você criou.
       setRecords(data.procedures || []);
 
       if (data.procedures) {
@@ -120,15 +122,6 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
               className="pl-10 h-9 text-sm"
             />
           </div>
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="h-9 text-sm w-full md:w-[180px]">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas Categorias</SelectItem>
-              {uniqueCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-            </SelectContent>
-          </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="h-9 text-sm w-full md:w-[180px]">
               <SelectValue placeholder="Status do Proc." />
@@ -139,12 +132,12 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
               <SelectItem value="pending">Pendente</SelectItem>
               <SelectItem value="cancelled">Cancelado</SelectItem>
               <SelectItem value="in_progress">Em Progresso</SelectItem>
-              <SelectItem value="aborted">Abortado</SelectItem>
+               <SelectItem value="aborted">Abortado</SelectItem>
             </SelectContent>
           </Select>
-            <Button variant="ghost" size="icon" onClick={() => {setSearchTerm(''); setFilterCategory('all'); setFilterStatus('all');}} className="h-9 w-9 text-muted-foreground hover:text-foreground" title="Limpar filtros">
-             <FilterX className="w-4 h-4" />
-            </Button>
+           <Button variant="ghost" size="icon" onClick={() => {setSearchTerm(''); setFilterCategory('all'); setFilterStatus('all');}} className="h-9 w-9 text-muted-foreground hover:text-foreground" title="Limpar filtros">
+            <FilterX className="w-4 h-4" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -153,7 +146,7 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
         ) : error ? (
           <div className="text-center py-10 text-destructive">{error}</div>
         ) : records.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">Nenhum registro encontrado para os filtros aplicados.</div>
+           <div className="text-center py-10 text-muted-foreground">Nenhum registro encontrado para os filtros aplicados.</div>
         ) : (
           <div className="overflow-x-auto max-h-[400px]">
             <Table>
@@ -162,7 +155,6 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
                   <TableHead>Data</TableHead>
                   <TableHead>Paciente</TableHead>
                   <TableHead>Procedimento</TableHead>
-                  <TableHead>Categoria</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Valor (R$)</TableHead>
                   <TableHead className="text-right">Custo (R$)</TableHead>
@@ -172,12 +164,12 @@ export function FinancialProceduresHistory({ period }: FinancialProceduresHistor
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id} className="hover:bg-accent/50">
-                    <TableCell className="whitespace-nowrap">{new Date(record.date + 'T00:00:00Z').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</TableCell>
-                    <TableCell>{record.patientName}</TableCell>
-                    <TableCell>{record.procedureName}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs">{record.category}</Badge></TableCell>
+                {/* --- CORREÇÃO 2: Renderização atualizada para usar os nomes corretos --- */}
+                {records.map((record, index) => (
+                  <TableRow key={record.id || index} className="hover:bg-accent/50">
+                    <TableCell className="whitespace-nowrap">{new Date(record.dateFull).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</TableCell>
+                    <TableCell>{record.patient}</TableCell>
+                    <TableCell>{record.procedure}</TableCell>
                     <TableCell>{getStatusBadge(record.status)}</TableCell>
                     <TableCell className="text-right font-medium">{record.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right text-destructive/80">{record.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>

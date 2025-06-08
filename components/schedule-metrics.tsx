@@ -12,7 +12,7 @@ interface ScheduleMetricsData {
   pendingAppointments?: number; // Se ainda relevante para este componente
   cancelledAppointments?: number; // Se ainda relevante
   completedProcedures?: number;
-  scheduledProcedures?: number;
+  agendadoProcedures?: number;
   occupancyRate: number;
   noShowRate?: number; // Adicionado, pode vir da API de métricas
 }
@@ -55,10 +55,10 @@ export function ScheduleMetrics({ metrics, viewMode }: ScheduleMetricsProps) {
       : "0.0";
 
   // const completionRate = // Se esta métrica for relevante aqui
-  //   (safeMetrics.completedProcedures || 0) + (safeMetrics.scheduledProcedures || 0) > 0
+  //   (safeMetrics.completedProcedures || 0) + (safeMetrics.agendadoProcedures || 0) > 0
   //     ? (
   //         ((safeMetrics.completedProcedures || 0) /
-  //           ((safeMetrics.completedProcedures || 0) + (safeMetrics.scheduledProcedures || 0))) * 100
+  //           ((safeMetrics.completedProcedures || 0) + (safeMetrics.agendadoProcedures || 0))) * 100
   //       ).toFixed(1)
   //     : "0.0";
 

@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const body: CreateAppointmentPayload = await request.json();
     const {
         patientId, appointmentDatetime, durationMinutes = 30,
-        appointmentType, notes, status = 'scheduled', valueCharged, userId
+        appointmentType, notes, status = 'agendado', valueCharged, userId
     } = body;
 
     if (!patientId || !appointmentDatetime || !appointmentType) {

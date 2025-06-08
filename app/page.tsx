@@ -336,6 +336,7 @@ function ModernDentalCRM() {
             if (!currentSettings && !isLoading.settings) fetchSettings();
             setShowSettingsModal(true);
         }}
+        clinicName={currentSettings?.clinicName}
       />
 
       <div className="md:ml-64">

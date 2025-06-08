@@ -21,7 +21,7 @@ export interface ProcedureScheduleItem {
   dateFull: string;
   patient: string;
   procedure: string;
-  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted" | "scheduled";
+  status: "completed" | "pending" | "cancelled" | "in_progress" | "aborted" | "agendado";
   duration: number;
   value?: number;
   profit?: number;
@@ -77,7 +77,7 @@ export function ProceduresScheduleList({ procedures: initialProcedures, viewMode
     switch (status) {
       case "completed": return "bg-success-muted text-success-foreground border-success-foreground/30";
       case "in_progress": return "bg-info-muted text-info-foreground border-info-foreground/30";
-      case "scheduled": case "pending": return "bg-warning-muted text-warning-foreground border-warning-foreground/30";
+      case "agendado": case "pending": return "bg-warning-muted text-warning-foreground border-warning-foreground/30";
       case "cancelled": case "aborted": return "bg-destructive text-destructive-foreground border-destructive/30";
       default: return "bg-muted text-muted-foreground border-border";
     }
@@ -85,7 +85,7 @@ export function ProceduresScheduleList({ procedures: initialProcedures, viewMode
 
   const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
-        completed: 'Concluído', in_progress: 'Em Andamento', scheduled: 'Agendado',
+        completed: 'Concluído', in_progress: 'Em Andamento', agendado: 'Agendado',
         cancelled: 'Cancelado', aborted: 'Abortado', pending: 'Pendente'
     };
     return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
@@ -95,7 +95,7 @@ export function ProceduresScheduleList({ procedures: initialProcedures, viewMode
     switch (status) {
       case "completed": return <CheckCircle className="w-3.5 h-3.5 text-success-foreground" />;
       case "in_progress": return <Clock className="w-3.5 h-3.5 text-info-foreground" />;
-      case "scheduled": case "pending": return <Clock className="w-3.5 h-3.5 text-warning-foreground" />;
+      case "agendado": case "pending": return <Clock className="w-3.5 h-3.5 text-warning-foreground" />;
       case "cancelled": case "aborted": return <XCircle className="w-3.5 h-3.5 text-destructive" />;
       default: return <Clock className="w-3.5 h-3.5 text-muted-foreground" />;
     }
@@ -138,9 +138,9 @@ export function ProceduresScheduleList({ procedures: initialProcedures, viewMode
           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Ações do Procedimento</DropdownMenuLabel>
-            {item.status === 'scheduled' && (<DropdownMenuItem onClick={() => handleAction('start', item.id)}>Iniciar</DropdownMenuItem>)}
+            {item.status === 'agendado' && (<DropdownMenuItem onClick={() => handleAction('start', item.id)}>Iniciar</DropdownMenuItem>)}
             {item.status === 'in_progress' && (<DropdownMenuItem onClick={() => handleAction('complete', item.id)}>Concluir</DropdownMenuItem>)}
-            {(item.status === 'scheduled' || item.status === 'in_progress') && (<DropdownMenuItem onClick={() => handleAction('cancel', item.id)} className="text-destructive focus:text-destructive">Cancelar</DropdownMenuItem>)}
+            {(item.status === 'agendado' || item.status === 'in_progress') && (<DropdownMenuItem onClick={() => handleAction('cancel', item.id)} className="text-destructive focus:text-destructive">Cancelar</DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -175,7 +175,7 @@ export function ProceduresScheduleList({ procedures: initialProcedures, viewMode
               <option value="all">Todos Status</option>
               <option value="completed">Concluídos</option>
               <option value="in_progress">Em Andamento</option>
-              <option value="scheduled">Agendados</option>
+              <option value="agendado">Agendados</option>
               <option value="pending">Pendentes</option>
               <option value="cancelled">Cancelados</option>
               <option value="aborted">Abortados</option>

@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface CalendarDayEventSummary {
   appointments: { count: number; confirmed: number; pending: number };
-  procedures: { count: number; completed: number; scheduled: number };
+  procedures: { count: number; completed: number; agendado: number };
 }
 
 interface CalendarEventsData {
@@ -47,7 +47,7 @@ export function CalendarView({ selectedDate, onDateSelect }: CalendarViewProps) 
             const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             simulatedData[dateKey] = {
                 appointments: { count: Math.floor(Math.random() * 5) + 1, confirmed: Math.floor(Math.random() * 3), pending: Math.floor(Math.random() * 2) },
-                procedures: { count: Math.floor(Math.random() * 4), completed: Math.floor(Math.random() * 2), scheduled: Math.floor(Math.random() * 2) },
+                procedures: { count: Math.floor(Math.random() * 4), completed: Math.floor(Math.random() * 2), agendado: Math.floor(Math.random() * 2) },
             };
         }
       }

@@ -83,7 +83,7 @@ export function AppointmentsList({ appointments: initialAppointments, viewMode, 
   const getStatusColorClass = (status: string): string => {
     switch (status) {
       case "confirmed": return "bg-success-muted text-success-foreground border-success-foreground/30";
-      case "pending": case "scheduled": return "bg-warning-muted text-warning-foreground border-warning-foreground/30";
+      case "pending": case "agendado": return "bg-warning-muted text-warning-foreground border-warning-foreground/30";
       case "completed": return "bg-info-muted text-info-foreground border-info-foreground/30";
       case "cancelled": case "no_show": return "bg-destructive text-destructive-foreground border-destructive/30";
       default: return "bg-muted text-muted-foreground border-border";
@@ -92,7 +92,7 @@ export function AppointmentsList({ appointments: initialAppointments, viewMode, 
 
   const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
-        scheduled: 'Agendado', confirmed: 'Confirmado', completed: 'Concluído', 
+        agendado: 'Agendado', confirmed: 'Confirmado', completed: 'Concluído', 
         cancelled: 'Cancelado', no_show: 'Não Compareceu', pending: 'Pendente'
     };
     return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
@@ -198,7 +198,7 @@ export function AppointmentsList({ appointments: initialAppointments, viewMode, 
               className="h-9 px-3 py-2 w-full md:w-auto bg-background border border-input rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="all">Todos Status</option>
-              <option value="scheduled">Agendados</option>
+              <option value="agendado">Agendados</option>
               <option value="confirmed">Confirmados</option>
               <option value="completed">Concluídos</option>
               <option value="cancelled">Cancelados</option>

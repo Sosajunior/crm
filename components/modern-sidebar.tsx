@@ -15,10 +15,12 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// --- MUDANÇA 1: Adicionar a propriedade 'clinicName' ---
 interface SidebarProps {
   activeView: string
   onViewChange: (view: string) => void
   onSettingsClick?: () => void
+  clinicName?: string // Adicionamos a nova propriedade aqui
 }
 
 const menuItems = [
@@ -29,7 +31,8 @@ const menuItems = [
   { id: "financial", label: "Financeiro", icon: DollarSign },
 ]
 
-export function Sidebar({ activeView, onViewChange, onSettingsClick }: SidebarProps) {
+// --- MUDANÇA 2: Receber e usar a nova propriedade 'clinicName' ---
+export function Sidebar({ activeView, onViewChange, onSettingsClick, clinicName }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -66,9 +69,10 @@ export function Sidebar({ activeView, onViewChange, onSettingsClick }: SidebarPr
           {!collapsed && (
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-primary font-medium">DC</span>
+                <span className="text-primary font-medium">DC</span> {/**TROCAR POR ICONE */}
               </div>
-              <span className="font-semibold">Dental CRM</span>
+              {/* --- MUDANÇA 3: Usar a variável no lugar do texto estático --- */}
+              <span className="font-semibold">{clinicName || "Dental CRM"}</span>
             </div>
           )}
           <Button
