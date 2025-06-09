@@ -36,9 +36,9 @@ export default function LoginForm({ className, ...props }: React.ComponentPropsW
 
       // Se a resposta for OK e tiver sucesso e token
       if (data.success && data.token) {
-        localStorage.setItem('jwtToken', data.token); // Armazena o token no localStorage
-        // Idealmente, você pode querer redirecionar para uma página de dashboard ou a página anterior
-        window.location.href = '/'; // Redireciona para a página inicial/dashboard
+        localStorage.setItem('jwtToken', data.token);
+        document.cookie = `jwt=${data.token}; path=/; max-age=604800`; // 7 dias
+        window.location.href = '/';
       } else {
         // Caso data.success seja false ou token não exista, mesmo com response.ok (improvável com a API acima)
         throw new Error(data.error || "Falha ao fazer login. Resposta inesperada do servidor.");

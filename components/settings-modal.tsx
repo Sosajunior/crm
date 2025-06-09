@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ActionModal } from "@/components/ui/action-modal";
 import { FormSection } from "@/components/ui/form-section";
 import { StyledTabs, StyledTabsList, StyledTabsTrigger, TabsContent } from "@/components/ui/tabs-styled";
-import { User, Bell, Shield, Palette, Mail, Phone, Clock, DollarSign, Save, Download, Upload, Trash2 } from "lucide-react";
+import { User, Bell, Shield, Palette, Mail, Phone, Clock, DollarSign, Save, Download, Upload, Trash2, LogOut } from "lucide-react";
+import { useRouter } from 'next/navigation';
 
 // Reutilizando interface de app/page.tsx ou types/index.ts
 export interface ClinicSettings {
@@ -69,6 +70,7 @@ const defaultSettings: ClinicSettings = {
 
 
 export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: SettingsModalProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
   const [settings, setSettings] = useState<ClinicSettings>(initialSettings || defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
@@ -133,6 +135,17 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
 
   if (!isOpen) return null; // Para evitar renderizar com settings vazios antes do effect
 
+  const handleLogout = () => {
+    // Remove o token do localStorage
+    localStorage.removeItem('token');
+    // Remove o cookie (se aplicável)
+    document.cookie = 'jwt=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    // Redireciona para a página de login
+    router.push('/login');
+    // Fecha o modal
+    onClose();
+  };
+
   return (
     <ActionModal
       isOpen={isOpen}
@@ -142,6 +155,10 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancelar</Button>
+          <Button variant="destructive" onClick={handleLogout} className="ml-auto mr-2">
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair
+          </Button>
           <Button onClick={handleSaveClick} className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={isSaving}>
             <Save className="w-4 h-4 mr-2" />
             {isSaving ? "Salvando..." : "Salvar Configurações"}
@@ -154,7 +171,6 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
           <StyledTabsList className="grid w-full grid-cols-3 sm:grid-cols-5 shrink-0 px-1 pt-1">
             <StyledTabsTrigger value="profile" tabStyle="pills" icon={<User />}>Perfil</StyledTabsTrigger>
             <StyledTabsTrigger value="notifications" tabStyle="pills" icon={<Bell />}>Notificações</StyledTabsTrigger>
-            <StyledTabsTrigger value="appearance" tabStyle="pills" icon={<Palette />}>Aparência</StyledTabsTrigger>
             <StyledTabsTrigger value="business" tabStyle="pills" icon={<Clock />}>Negócio</StyledTabsTrigger>
             <StyledTabsTrigger value="security" tabStyle="pills" icon={<Shield />}>Segurança</StyledTabsTrigger>
           </StyledTabsList>
@@ -302,10 +318,6 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
                         <div><Label htmlFor="maxAdvanceBooking">Agendamento Antecipado Máx. (dias)</Label><Input id="maxAdvanceBooking" type="number" value={settings.maxAdvanceBooking || ""} onChange={(e) => updateSetting("maxAdvanceBooking", e.target.value)} className="mt-1" disabled={isSaving}/></div>
                     </div>
                 </FormSection>
-                 <FormSection title="Financeiro Básico">
-                    <div><Label htmlFor="taxRate">Taxa de Imposto Padrão (%)</Label><Input id="taxRate" type="number" value={settings.taxRate || ""} onChange={(e) => updateSetting("taxRate", e.target.value)} className="mt-1" disabled={isSaving}/></div>
-                    {/* Métodos de pagamento podem ser checkboxes ou um multi-select */}
-                </FormSection>
             </TabsContent>
 
             <TabsContent value="security" className="mt-0 space-y-6">
@@ -317,7 +329,6 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
                 <div className="space-y-3">
                   <Button variant="outline" onClick={handleExportData} className="w-full justify-start" disabled={isSaving}><Download className="mr-2 h-4 w-4"/>Exportar Dados</Button>
                   <Button variant="outline" className="w-full justify-start" disabled={isSaving}><Upload className="mr-2 h-4 w-4"/>Importar Dados (Upload)</Button>
-                  <Button variant="destructive" className="w-full justify-start" disabled={isSaving}><Trash2 className="mr-2 h-4 w-4"/>Limpar Todos os Dados (Ação Perigosa)</Button>
                 </div>
               </FormSection>
             </TabsContent>

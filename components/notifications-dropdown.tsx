@@ -68,11 +68,10 @@ export function NotificationsDropdown({
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
       <div className="absolute top-16 right-6 w-96 max-h-96 overflow-hidden">
-        <Card className="shadow-xl border-slate-200 animate-slide-down">
-          <CardHeader className="pb-3 border-b border-slate-100">
+        <Card className="shadow-xl border-border animate-slide-down">
+          <CardHeader className="pb-3 border-b border-border">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold flex items-center">
-                <Bell className="w-5 h-5 mr-2 text-slate-600" />
                 Notificações
                 {unreadCount > 0 && <Badge className="ml-2 bg-primary text-primary-foreground">{unreadCount}</Badge>}
               </CardTitle>
@@ -102,7 +101,7 @@ export function NotificationsDropdown({
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors ${
+                    className={`p-4 border-b border-border last:border-b-0 hover:bg-slate-50 transition-colors ${
                       !notification.read ? "bg-blue-50/50" : ""
                     }`}
                     onClick={(e) => e.stopPropagation()}
@@ -112,10 +111,10 @@ export function NotificationsDropdown({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
-                            <h4 className="text-sm font-medium text-slate-900 truncate">{notification.title}</h4>
-                            <p className="text-sm text-slate-600 mt-1 line-clamp-2">{notification.message}</p>
+                            <h4 className="text-sm font-medium text-white truncate">{notification.title}</h4>
+                            <p className="text-sm text-slate-200 mt-1 line-clamp-2">{notification.message}</p>
                             <div className="flex items-center gap-2 mt-2">
-                              <span className="text-xs text-slate-500">{notification.time}</span>
+                              <span className="text-xs text-slate-300">{notification.time}</span>
                               <Badge className={`text-xs ${getBadgeVariant(notification.type)}`}>
                                 {notification.type === "info" && "Info"}
                                 {notification.type === "warning" && "Atenção"}
@@ -154,9 +153,9 @@ export function NotificationsDropdown({
               </div>
             ) : (
               <div className="p-8 text-center">
-                <Bell className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <h3 className="text-sm font-medium text-slate-900 mb-1">Nenhuma notificação</h3>
-                <p className="text-sm text-slate-500">Você está em dia com tudo!</p>
+                <Bell className="w-12 h-12 mx-auto mb-4 text-slate-300/20" />
+                <h3 className="text-sm font-medium text-white mb-1">Nenhuma notificação</h3>
+                <p className="text-sm text-slate-300">Você está em dia com tudo!</p>
               </div>
             )}
           </CardContent>

@@ -35,7 +35,15 @@ export async function middleware(request: NextRequest) {
   // impedindo que o middleware rode em rotas públicas.
 
   const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  let token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  if (!token) {
+    // Busca o token no cookie 'jwt'
+    const cookie = request.headers.get('cookie');
+    if (cookie) {
+      const match = cookie.match(/(?:^|; )jwt=([^;]*)/);
+      if (match) token = match[1];
+    }
+  }
 
   // Se não houver token, redireciona para o login ou retorna 401 para APIs
   if (!token) {

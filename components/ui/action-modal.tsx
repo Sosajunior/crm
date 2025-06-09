@@ -25,7 +25,7 @@ export function ActionModal({ isOpen, onClose, title, children, footer, size = "
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 mt-0 animate-fade-in p-4"
       onClick={onClose}
     >
       <div

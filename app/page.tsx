@@ -368,6 +368,7 @@ function ModernDentalCRM() {
               </div>
 
               <div className="flex items-center gap-2 md:gap-4">
+                {activeView !== "schedule" && (
                 <div className="hidden md:flex bg-muted rounded-md p-1">
                   {["today", "week", "month"].map((p) => (
                     <Button
@@ -383,6 +384,7 @@ function ModernDentalCRM() {
                     </Button>
                   ))}
                 </div>
+                )}
 
                 <Button size="sm" className="hidden md:flex bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowNewPatientModal(true)}>
                   <Plus className="h-4 w-4 mr-1 md:mr-2" />

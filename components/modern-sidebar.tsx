@@ -68,10 +68,6 @@ export function Sidebar({ activeView, onViewChange, onSettingsClick, clinicName 
         <div className="flex h-16 items-center justify-between border-b px-4">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-primary font-medium">DC</span> {/**TROCAR POR ICONE */}
-              </div>
-              {/* --- MUDANÇA 3: Usar a variável no lugar do texto estático --- */}
               <span className="font-semibold">{clinicName || "Gennius Solutions"}</span>
             </div>
           )}
