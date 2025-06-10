@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ActionModal } from "@/components/ui/action-modal";
 import { FormSection } from "@/components/ui/form-section";
 import { StyledTabs, StyledTabsList, StyledTabsTrigger, TabsContent } from "@/components/ui/tabs-styled";
-import { User, Bell, Shield, Palette, Mail, Phone, Clock, DollarSign, Save, Download, Upload, Trash2, LogOut } from "lucide-react";
+import { User, Bell, Shield, Palette, Clock, Save, Download, Upload, LogOut } from "lucide-react";
 import { useRouter } from 'next/navigation';
 
 // Reutilizando interface de app/page.tsx ou types/index.ts
@@ -35,8 +35,6 @@ export interface ClinicSettings {
     appointmentDuration?: string;
     bufferTime?: string;
     maxAdvanceBooking?: string;
-    // Removido defaultProcedurePrices pois não está no schema de clinic_settings,
-    // isso viria de procedure_catalog ou seria uma funcionalidade separada
     taxRate?: string;
     paymentMethods?: Record<string, boolean>;
     sessionTimeout?: string;
@@ -46,8 +44,8 @@ export interface ClinicSettings {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (settings: ClinicSettings) => Promise<void>; // Atualizado para ser async
-  initialSettings: ClinicSettings | null; // Recebe as configurações carregadas
+  onSave: (settings: ClinicSettings) => Promise<void>;
+  initialSettings: ClinicSettings | null;
 }
 
 const defaultSettings: ClinicSettings = {
@@ -77,10 +75,9 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
 
   useEffect(() => {
     if (isOpen && initialSettings) {
-        // Fundir initialSettings com defaultSettings para garantir que todos os campos existam
         setSettings(prev => ({ ...defaultSettings, ...initialSettings, ...prev }));
     } else if (isOpen && !initialSettings) {
-        setSettings(defaultSettings); // Se não houver initialSettings, usa o default
+        setSettings(defaultSettings);
     }
   }, [isOpen, initialSettings]);
 
@@ -92,7 +89,7 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
       let current: any = newSettings;
 
       for (let i = 0; i < keys.length - 1; i++) {
-        current[keys[i]] = { ...(current[keys[i]] || {}) }; // Garante que o objeto aninhado exista
+        current[keys[i]] = { ...(current[keys[i]] || {}) };
         current = current[keys[i]];
       }
       current[keys[keys.length - 1]] = value;
@@ -104,10 +101,8 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
     setIsSaving(true);
     try {
         await onSave(settings);
-        // onClose(); // O onSave em app/page.tsx já fecha o modal
     } catch (error) {
         console.error("Falha ao salvar configurações no modal:", error);
-        // Poderia mostrar um toast de erro aqui
     } finally {
         setIsSaving(false);
     }
@@ -115,11 +110,9 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
 
   const handleExportData = () => {
     const dataToExport = {
-      // Simular busca de dados reais ou usar um snapshot das configurações atuais
       settings: settings,
-      // Adicionar outros dados se necessário
-      patientsCount: 150, // Exemplo, viria de uma API
-      appointmentsCount: 1200, // Exemplo
+      patientsCount: 150,
+      appointmentsCount: 1200,
       exportDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
@@ -133,16 +126,12 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
     URL.revokeObjectURL(url);
   };
 
-  if (!isOpen) return null; // Para evitar renderizar com settings vazios antes do effect
+  if (!isOpen) return null;
 
   const handleLogout = () => {
-    // Remove o token do localStorage
     localStorage.removeItem('token');
-    // Remove o cookie (se aplicável)
     document.cookie = 'jwt=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    // Redireciona para a página de login
     router.push('/login');
-    // Fecha o modal
     onClose();
   };
 
@@ -166,16 +155,17 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
         </>
       }
     >
-      <div className="max-h-[70vh] overflow-hidden"> {/* Container pai do scroll */}
+      <div className="max-h-[70vh] overflow-hidden">
         <StyledTabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           <StyledTabsList className="grid w-full grid-cols-3 sm:grid-cols-5 shrink-0 px-1 pt-1">
-            <StyledTabsTrigger value="profile" tabStyle="pills" icon={<User />}>Perfil</StyledTabsTrigger>
-            <StyledTabsTrigger value="notifications" tabStyle="pills" icon={<Bell />}>Notificações</StyledTabsTrigger>
-            <StyledTabsTrigger value="business" tabStyle="pills" icon={<Clock />}>Negócio</StyledTabsTrigger>
-            <StyledTabsTrigger value="security" tabStyle="pills" icon={<Shield />}>Segurança</StyledTabsTrigger>
+            <StyledTabsTrigger value="profile" tabStyle="pills" icon={<User />} type="button">Perfil</StyledTabsTrigger>
+            <StyledTabsTrigger value="notifications" tabStyle="pills" icon={<Bell />} type="button">Notificações</StyledTabsTrigger>
+            <StyledTabsTrigger value="appearance" tabStyle="pills" icon={<Palette />} type="button">Aparência</StyledTabsTrigger>
+            <StyledTabsTrigger value="business" tabStyle="pills" icon={<Clock />} type="button">Negócio</StyledTabsTrigger>
+            <StyledTabsTrigger value="security" tabStyle="pills" icon={<Shield />} type="button">Segurança</StyledTabsTrigger>
           </StyledTabsList>
 
-          <div className="mt-4 flex-1 overflow-y-auto px-1 pb-1"> {/* Conteúdo com scroll */}
+          <div className="mt-4 flex-1 overflow-y-auto px-1 pb-1">
             <TabsContent value="profile" className="mt-0 space-y-6">
               <FormSection title="Informações do Consultório" description="Dados básicos da clínica">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -216,19 +206,19 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
                 <div className="space-y-4">
                   <div className="flex items-center justify-between rounded-md border p-3">
                     <div><Label>Notificações por Email</Label><p className="text-xs text-muted-foreground">Receber via email.</p></div>
-                    <Switch checked={settings.emailNotifications} onCheckedChange={(val) => updateSetting("emailNotifications", val)} disabled={isSaving}/>
+                    <Switch checked={!!settings.emailNotifications} onCheckedChange={(val) => updateSetting("emailNotifications", val)} disabled={isSaving}/>
                   </div>
                   <div className="flex items-center justify-between rounded-md border p-3">
                     <div><Label>Notificações por SMS</Label><p className="text-xs text-muted-foreground">Receber via SMS.</p></div>
-                    <Switch checked={settings.smsNotifications} onCheckedChange={(val) => updateSetting("smsNotifications", val)} disabled={isSaving}/>
+                    <Switch checked={!!settings.smsNotifications} onCheckedChange={(val) => updateSetting("smsNotifications", val)} disabled={isSaving}/>
                   </div>
                   <div className="flex items-center justify-between rounded-md border p-3">
-                     <div><Label>Notificações por WhatsApp</Label><p className="text-xs text-muted-foreground">Receber via WhatsApp.</p></div>
-                    <Switch checked={settings.whatsappNotifications} onCheckedChange={(val) => updateSetting("whatsappNotifications", val)} disabled={isSaving}/>
+                      <div><Label>Notificações por WhatsApp</Label><p className="text-xs text-muted-foreground">Receber via WhatsApp.</p></div>
+                    <Switch checked={!!settings.whatsappNotifications} onCheckedChange={(val) => updateSetting("whatsappNotifications", val)} disabled={isSaving}/>
                   </div>
                   <div className="flex items-center justify-between rounded-md border p-3">
                     <div><Label>Lembretes de Consulta</Label><p className="text-xs text-muted-foreground">Enviar aos pacientes.</p></div>
-                    <Switch checked={settings.appointmentReminders} onCheckedChange={(val) => updateSetting("appointmentReminders", val)} disabled={isSaving}/>
+                    <Switch checked={!!settings.appointmentReminders} onCheckedChange={(val) => updateSetting("appointmentReminders", val)} disabled={isSaving}/>
                   </div>
                   <div>
                     <Label htmlFor="reminderTime">Antecedência do Lembrete</Label>
@@ -286,8 +276,8 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
                         <Select value={settings.timeFormat || "24h"} onValueChange={(value) => updateSetting("timeFormat", value)} disabled={isSaving}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="HH:mm">24 horas (HH:mm)</SelectItem> {/* Ajustado para valor do DB */}
-                            <SelectItem value="h:mm a">12 horas (AM/PM)</SelectItem> {/* Ajustado */}
+                            <SelectItem value="HH:mm">24 horas (HH:mm)</SelectItem>
+                            <SelectItem value="h:mm a">12 horas (AM/PM)</SelectItem>
                         </SelectContent>
                         </Select>
                     </div>
@@ -323,12 +313,15 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
             <TabsContent value="security" className="mt-0 space-y-6">
               <FormSection title="Segurança da Conta">
                 <div><Label htmlFor="sessionTimeout">Timeout da Sessão (minutos)</Label><Input id="sessionTimeout" type="number" value={settings.sessionTimeout || ""} onChange={(e) => updateSetting("sessionTimeout", e.target.value)} className="mt-1" disabled={isSaving}/></div>
-                {/* Opções de 2FA e mudança de senha iriam aqui */}
               </FormSection>
               <FormSection title="Backup e Gerenciamento de Dados">
                 <div className="space-y-3">
-                  <Button variant="outline" onClick={handleExportData} className="w-full justify-start" disabled={isSaving}><Download className="mr-2 h-4 w-4"/>Exportar Dados</Button>
-                  <Button variant="outline" className="w-full justify-start" disabled={isSaving}><Upload className="mr-2 h-4 w-4"/>Importar Dados (Upload)</Button>
+                  <Button variant="outline" onClick={handleExportData} className="w-full justify-start" disabled={isSaving} type="button">
+                    <Download className="mr-2 h-4 w-4"/>Exportar Dados
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start" disabled={isSaving} type="button">
+                    <Upload className="mr-2 h-4 w-4"/>Importar Dados (Upload)
+                  </Button>
                 </div>
               </FormSection>
             </TabsContent>

@@ -1,8 +1,6 @@
-// app/page.tsx
 "use client"
 
 import { useState, useEffect, useCallback } from "react";
-import { useLoading } from "@/context/loading-context"; // Importe o hook de loading
 import { Button } from "@/components/ui/button";
 import { Bell, Plus, Settings } from "lucide-react";
 import { Sidebar } from "@/components/modern-sidebar";
@@ -121,8 +119,6 @@ export default function ModernDentalCRMPage() {
 
 function ModernDentalCRM() {
   const { toast } = useToast();
-  const { isLoading: isAppLoading, setLoading: setAppLoading } = useLoading();
-
   const [activeView, setActiveView] = useState("dashboard");
   const [selectedPeriod, setSelectedPeriod] = useState("today");
 
@@ -137,79 +133,81 @@ function ModernDentalCRM() {
   const [showNewPatientModal, setShowNewPatientModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const [isLocalLoading, setLocalIsLoading] = useState<Record<string, boolean>>({
-    selectedPatient: false,
-    settings: false,
-    patients: false,
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({
+    metrics: true, patients: true, notifications: true, settings: true, selectedPatient: false,
   });
-  const setLocalLoading = (key: string, value: boolean) => setLocalIsLoading(prev => ({ ...prev, [key]: value }));
 
-  // Funções de busca de dados
+  const setLoading = (key: string, value: boolean) => setIsLoading(prev => ({ ...prev, [key]: value }));
+
   const fetchMetrics = useCallback(async (period: string) => {
-    const data = await apiClient<{ metrics: MetricValues }>(`/metrics?period=${period}`);
-    setCurrentMetrics(data.metrics);
-  }, []);
+    setLoading("metrics", true);
+    try {
+      const data = await apiClient<{ metrics: MetricValues }>(`/metrics?period=${period}`);
+      setCurrentMetrics(data.metrics);
+    } catch (error) {
+      console.error("Error fetching metrics:", error);
+      setCurrentMetrics(null);
+      toast({ title: "Erro ao buscar métricas", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+      if (error instanceof Error && (error.message.includes('Não autorizado') || error.message.includes('Token não fornecido'))) {
+        localStorage.removeItem('jwtToken');
+        router.push('/login');
+      }
+    } finally {
+      setLoading("metrics", false);
+    }
+  }, [toast]);
 
   const fetchPatients = useCallback(async (period: string, searchTerm: string = "") => {
-    const response = await fetch(`/api/patients?period=${period}&search=${encodeURIComponent(searchTerm)}`);
-    if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Patients API error! status: ${response.status}`); }
-    const data = await response.json();
-    setPatients(data.patients || []);
-  }, []);
+    setLoading("patients", true);
+    try {
+      const response = await fetch(`/api/patients?period=${period}&search=${encodeURIComponent(searchTerm)}`);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Patients API error! status: ${response.status}`);}
+      const data = await response.json();
+      setPatients(data.patients || []);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      setPatients([]);
+      toast({ title: "Erro ao buscar pacientes", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+    } finally {
+      setLoading("patients", false);
+    }
+  }, [toast]);
 
   const fetchNotifications = useCallback(async () => {
-    const response = await fetch('/api/notifications');
-    if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Notifications API error! status: ${response.status}`); }
-    const data = await response.json();
-    setNotifications(data || []);
+    setLoading("notifications", true);
+    try {
+      const response = await fetch('/api/notifications');
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Notifications API error! status: ${response.status}`);}
+      const data = await response.json();
+      setNotifications(data || []);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      setNotifications([]);
+    } finally {
+      setLoading("notifications", false);
+    }
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    const response = await fetch('/api/settings');
-    if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Settings API error! status: ${response.status}`); }
-    const data: ClinicSettings = await response.json();
-    setCurrentSettings(data || {});
-  }, []);
-
-  // Efeito principal para o pré-carregamento inicial de todos os dados essenciais
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        setAppLoading(true); // Ativa o loader global
-        await Promise.all([
-          fetchMetrics(selectedPeriod),
-          fetchPatients(selectedPeriod),
-          fetchNotifications(),
-          fetchSettings()
-        ]);
-      } catch (error) {
-        console.error("Erro no carregamento inicial:", error);
-        toast({ title: "Erro Crítico", description: "Não foi possível carregar os dados. Verifique a conexão e tente novamente.", variant: "destructive" });
-        // Em caso de erro crítico, pode-se redirecionar para o login
-        // await router.push('/login');
-      } finally {
-        setAppLoading(false); // Desativa o loader global, revelando a aplicação
-      }
-    };
-    loadInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Efeitos que reagem a mudanças de período (após o carregamento inicial)
-  useEffect(() => {
-    if (!isAppLoading) {
-      fetchMetrics(selectedPeriod).catch(err => console.error("Falha ao re-buscar métricas:", err));
+    setLoading("settings", true);
+    try {
+      const response = await fetch('/api/settings');
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || `Settings API error! status: ${response.status}`);}
+      const data: ClinicSettings = await response.json();
+      setCurrentSettings(data || {});
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      setCurrentSettings({});
+      toast({ title: "Erro ao buscar configurações", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+    } finally {
+      setLoading("settings", false);
     }
-  }, [selectedPeriod, isAppLoading, fetchMetrics]);
-  
-  useEffect(() => {
-    if (!isAppLoading && (activeView === "patients" || activeView === "dashboard")) {
-      fetchPatients(selectedPeriod).catch(err => console.error("Falha ao re-buscar pacientes:", err));
-    }
-  }, [activeView, selectedPeriod, isAppLoading, fetchPatients]);
+  }, [toast]);
 
-
-  // --- Funções de Manipulação (Handlers) ---
+  useEffect(() => { fetchMetrics(selectedPeriod); }, [selectedPeriod, fetchMetrics]);
+  useEffect(() => { if (activeView === "patients" || activeView === "dashboard") fetchPatients(selectedPeriod); }, [activeView, selectedPeriod, fetchPatients]);
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  useEffect(() => { if (showSettingsModal && !currentSettings) fetchSettings(); }, [showSettingsModal, currentSettings, fetchSettings]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -236,7 +234,7 @@ function ModernDentalCRM() {
   };
 
   const handleSaveNewPatient = async (patientData: CreatePatientPayload) => {
-    setLocalLoading("patients", true);
+    setLoading("patients", true);
     try {
       const response = await fetch('/api/patients', {
         method: 'POST',
@@ -245,6 +243,7 @@ function ModernDentalCRM() {
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Falha ao salvar paciente');
+      
       await fetchPatients(selectedPeriod); 
       setShowNewPatientModal(false);
       toast({ title: "Sucesso!", description: "Paciente cadastrado com sucesso!" });
@@ -252,12 +251,12 @@ function ModernDentalCRM() {
       console.error("Error saving new patient:", error);
       toast({ title: "Erro ao salvar paciente", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
-      setLocalLoading("patients", false);
+      setLoading("patients", false);
     }
   };
 
   const handleSaveSettings = async (settingsData: ClinicSettings) => {
-    setLocalLoading("settings", true);
+    setLoading("settings", true);
     try {
       const response = await fetch('/api/settings', {
         method: 'PUT',
@@ -273,13 +272,13 @@ function ModernDentalCRM() {
       console.error("Error saving settings:", error);
       toast({ title: "Erro ao salvar configurações", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
-      setLocalLoading("settings", false);
+      setLoading("settings", false);
     }
   };
 
   const handleSelectPatient = async (patientListItem: PatientListItem) => {
     if (!patientListItem?.id) { setSelectedPatientDetail(null); return; }
-    setLocalLoading("selectedPatient", true);
+    setLoading("selectedPatient", true);
     try {
       const response = await fetch(`/api/patients/${patientListItem.id}`);
       if (!response.ok) {
@@ -297,29 +296,30 @@ function ModernDentalCRM() {
       setSelectedPatientDetail(null);
       toast({ title: "Erro ao carregar paciente", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
-      setLocalLoading("selectedPatient", false);
+      setLoading("selectedPatient", false);
     }
   };
 
   const renderContent = () => {
-    if (isLocalLoading.selectedPatient) return <div className="flex justify-center items-center h-64"><p>Carregando perfil do paciente...</p></div>;
+    if (isLoading.selectedPatient) return <div className="flex justify-center items-center h-64"><p>Carregando perfil do paciente...</p></div>;
     if (activeView === "patients" && selectedPatientDetail) {
-      return <PatientProfile patient={selectedPatientDetail} onBack={() => setSelectedPatientDetail(null)} />;
+        return <PatientProfile patient={selectedPatientDetail} onBack={() => setSelectedPatientDetail(null)} />;
     }
 
     switch (activeView) {
       case "dashboard":
-        if (!currentMetrics) return <div className="flex justify-center items-center h-64"><p>A carregar dashboard...</p></div>;
+        if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando dashboard...</p></div>;
         return <DashboardOverview metrics={currentMetrics} period={selectedPeriod} />;
       case "patients":
+        if (isLoading.patients) return <div className="flex justify-center items-center h-64"><p>Carregando pacientes...</p></div>;
         return <PatientManagement patients={patients} onSelectPatient={handleSelectPatient} selectedPeriod={selectedPeriod} />;
       case "schedule":
         return <ScheduleManagement selectedPeriod={selectedPeriod} />;
       case "funnel":
-        if (!currentMetrics) return <div className="flex justify-center items-center h-64"><p>A carregar análise de funil...</p></div>;
+        if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando análise de funil...</p></div>;
         return <FunnelAnalysis metrics={currentMetrics} period={selectedPeriod} />;
       case "financial":
-        if (!currentMetrics) return <div className="flex justify-center items-center h-64"><p>A carregar financeiro...</p></div>;
+        if (isLoading.metrics || !currentMetrics) return <div className="flex justify-center items-center h-64"><p>Carregando financeiro...</p></div>;
         return <FinancialOverview metrics={currentMetrics} period={selectedPeriod} />;
       default:
         return <div className="flex justify-center items-center h-64"><p>Selecione uma visualização.</p></div>;
@@ -328,13 +328,15 @@ function ModernDentalCRM() {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
-  if (isAppLoading) {
-    return null; // A tela de loading global é exibida pelo RootLayout
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <ClickSpark sparkColor='#fff' sparkSize={10} sparkRadius={15} sparkCount={8} duration={400}>
+        <ClickSpark
+          sparkColor='#fff'
+          sparkSize={10}
+          sparkRadius={15}
+          sparkCount={8}
+          duration={400}
+        >
         <Sidebar
           activeView={activeView}
           onViewChange={(view) => {
@@ -342,7 +344,7 @@ function ModernDentalCRM() {
             setActiveView(view);
           }}
           onSettingsClick={() => {
-              if (!currentSettings && !isLocalLoading.settings) fetchSettings();
+              if (!currentSettings && !isLoading.settings) fetchSettings();
               setShowSettingsModal(true);
           }}
           clinicName={currentSettings?.clinicName}
@@ -363,21 +365,21 @@ function ModernDentalCRM() {
 
               <div className="flex items-center gap-2 md:gap-4">
                 {activeView !== "schedule" && (
-                <div className="hidden md:flex bg-muted rounded-md p-1">
-                  {["today", "week", "month"].map((p) => (
-                    <Button
-                      key={p}
-                      variant={selectedPeriod === p ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setSelectedPeriod(p)}
-                      className={`text-xs px-3 py-1 h-8 ${selectedPeriod === p ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    >
-                      {p === "today" && "Hoje"}
-                      {p === "week" && "Semana"}
-                      {p === "month" && "Mês"}
-                    </Button>
-                  ))}
-                </div>
+                  <div className="hidden md:flex bg-muted rounded-md p-1">
+                    {["today", "week", "month"].map((p) => (
+                      <Button
+                        key={p}
+                        variant={selectedPeriod === p ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setSelectedPeriod(p)}
+                        className={`text-xs px-3 py-1 h-8 ${selectedPeriod === p ? 'shadow-sm text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                      >
+                        {p === "today" && "Hoje"}
+                        {p === "week" && "Semana"}
+                        {p === "month" && "Mês"}
+                      </Button>
+                    ))}
+                  </div>
                 )}
 
                 <Button size="sm" className="hidden md:flex bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowNewPatientModal(true)}>
@@ -403,7 +405,7 @@ function ModernDentalCRM() {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                      if (!currentSettings && !isLocalLoading.settings) fetchSettings();
+                      if (!currentSettings && !isLoading.settings) fetchSettings();
                       setShowSettingsModal(true);
                   }}
                   className="hidden md:flex h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -444,7 +446,12 @@ function ModernDentalCRM() {
             initialSettings={currentSettings}
           />
         )}
-      </ClickSpark>
+        {showSettingsModal && isLoading.settings && (
+            <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[60]">
+              <p>Carregando configurações...</p>
+            </div>
+          )}
+        </ClickSpark>
     </div>
   );
 }

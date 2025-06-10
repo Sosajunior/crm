@@ -23,7 +23,6 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>
         <LoadingProvider>
-          <GlobalLoader /> {/* O loader fica aqui, fora do {children} */}
           {children}
         </LoadingProvider>
       </body>

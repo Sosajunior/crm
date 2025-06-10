@@ -25,7 +25,7 @@ export default function LoginPage() {
         {/* Adicionamos uma margem inferior para separar do formulário */}
         <div className="mb-10">
           <TrueFocus 
-            sentence="Building the future of"
+            sentence="Building your future"
             manualMode={true}
             blurAmount={5}
             borderColor="9F9F9F"
