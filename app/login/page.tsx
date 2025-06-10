@@ -28,7 +28,7 @@ export default function LoginPage() {
             sentence="Building the future of"
             manualMode={true}
             blurAmount={5}
-            borderColor="#9F9F9F"
+            borderColor="9F9F9F"
             glowColor="rgba(156, 140, 242, 0.5)"
             animationDuration={1}
             pauseBetweenAnimations={1}
